@@ -426,7 +426,9 @@ const qaHistory = ref([
 ])
 
 const interactWs = useWebSocket('/ws/interaction', {
-   onOpen: () => console.log('Interactive WS connected'),
+   onOpen: () => {
+     // WebSocket 连接成功，恰天备用
+   },
    onMessage: (event) => {
       if (typeof event.data === 'string') {
           try {
@@ -475,8 +477,8 @@ const startRecord = async () => {
         audioChunks = []
         mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data) }
         mediaRecorder.start()
-    } catch(e) {
-        console.error('获取麦克风失败:', e)
+    } catch (e) {
+        console.warn('[GlobalPlayer] 获取麦克风失败:', e)
         recordingPrompt.value = false
     }
 }

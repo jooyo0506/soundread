@@ -206,8 +206,7 @@ const handlePay = async () => {
   isPaying.value = true
   try {
       const order = await vipApi.createOrder(selectedPlan.value)
-      console.log('Order created:', order)
-      // 在此发起微信支付/支付宝拉起参数，由于是模拟体系，我们假装收银台成功
+      // TODO: 对接真实支付（微信/支付宝），当前为模拟支付流程
       toastStore.show(`支付成功！订单 ${order.orderNo || '待分配'} 已生效，正在加载您的全新特权...`)
       
       // 更新 authStore user 状态并在刷新后触发重新请求 profile 和 policy

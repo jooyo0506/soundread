@@ -112,8 +112,9 @@ const fetchLibrary = async () => {
                 activeCategory.value = '全部'
             }
         }
-    } catch(e) {
-        console.error("加载音色库失败:", e)
+    } catch (e) {
+        console.warn('[VoiceSelector] 加载音色库失败:', e)
+        toastStore.show('音色库加载失败，请重试')
     } finally {
         loading.value = false
     }
@@ -132,8 +133,8 @@ const filteredVoices = computed(() => {
 })
 
 const previewVoice = (voice) => {
-    // 实际项目中这里可以播放 previewUrl
-    console.log("播放试听:", voice.name)
+    // TODO: 接入音色试听功能（播放 previewUrl）
+    toastStore.show(`试听功能即将开放: ${voice.name}`)
 }
 
 // 鉴权判断函数（对应后端校验）

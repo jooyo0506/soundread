@@ -90,7 +90,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '@/stores/toast'
-import axios from 'axios'
+import { dramaApi } from '@/api/tts'
 import { usePlayerStore } from '@/stores/player'
 
 const router = useRouter()
@@ -124,20 +124,21 @@ const handleSynthesize = async () => {
   
   try {
     isGenerating.value = true
-    const response = await axios.post('/api/tts/drama/synthesize', {
+    // 使用封装好的 dramaApi，符合前端规范（禁止组件内直接调 axios）
+    const data = await dramaApi.synthesize({
       globalContext: globalContext.value,
       lines: validLines
     })
 
-    if (response.data?.code === 200 && response.data?.data?.audioUrl) {
+    if (data?.audioUrl) {
       toast.show('🎉 短剧录制完成！')
-      player.playUrl(response.data.data.audioUrl)
+      player.playUrl(data.audioUrl)
     } else {
-      toast.show(response.data?.message || '合成失败')
+      toast.show('合成失败，请重试')
     }
   } catch (error) {
-    console.error('剧情合成异常', error)
-    toast.show(error.response?.data?.message || '请求服务失败，请重试')
+    console.error('[Drama] 剧情合成异常:', error)
+    toast.show(error.response?.data?.msg || '请求服务失败，请重试')
   } finally {
     isGenerating.value = false
   }
