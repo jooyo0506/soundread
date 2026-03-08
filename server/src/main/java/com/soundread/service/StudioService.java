@@ -1020,7 +1020,12 @@ public class StudioService {
                         .last("LIMIT 1"));
 
         if (work == null) {
-            throw new RuntimeException("未找到已发布的作品");
+            // 兼容旧版发布逻辑：publishNovel() 只改了项目状态，未写 work 表
+            // 直接将项目状态回退为「编辑中」即可
+            project.setStatus("editing");
+            projectMapper.updateById(project);
+            log.warn("[StudioService] 下架时未找到 Work 记录，直接回退项目状态: projectId={}", projectId);
+            return Map.of("message", "已下架（历史数据兼容）");
         }
 
         // 1. 将 Work 状态改为下架
