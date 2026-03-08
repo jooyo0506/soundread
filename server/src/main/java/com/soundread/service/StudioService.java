@@ -68,6 +68,7 @@ public class StudioService {
     private final WorkMapper workMapper;
     private final R2StorageAdapter r2StorageAdapter;
     private final CreativeAgentFactory agentFactory;
+    private final QuotaService quotaService;
 
     // ========================
     // 1. 模板管理
@@ -544,6 +545,18 @@ public class StudioService {
                 // 生成完毕，持久化 Section 并绑定 userInput 到历史记录
                 saveGeneratedContent(project, fullResponse.toString(), user, userInput, targetSectionIndex);
 
+                // 小说类型：按实际生成字数扣减「小说合成」配额
+                if ("novel".equals(project.getTypeCode())) {
+                    int charCount = fullResponse.length();
+                    try {
+                        quotaService.checkAndDeductNovelCharsQuota(user, charCount);
+                    } catch (Exception e) {
+                        // 配额超限仅记录日志，不影响已生成的内容
+                        log.warn("[StudioService] 小说配额扣减失败: userId={} chars={} err={}",
+                                user.getId(), charCount, e.getMessage());
+                    }
+                }
+
                 // 生成完成，将项目状态改为「编辑中」
                 project.setStatus("editing");
                 projectMapper.updateById(project);
@@ -931,11 +944,14 @@ public class StudioService {
         if (!audioSections.isEmpty()) {
             creation.setVoiceId(audioSections.get(0).getVoiceId());
         }
-        creation.setAudioUrl(mainAudioUrl);
-        // 估算音频时长：按 TTS 标准 4.5 字/秒计算
-        int estimatedDuration = Math.max(5,
-                (int) (audioSections.stream().mapToInt(s -> s.getContent() != null ? s.getContent().length() : 0).sum()
-                        / 4.5));
+        // audio_url 字段 NOT NULL：无音频（如纯文字小说）时写空字符串避免 INSERT 报错
+        creation.setAudioUrl(mainAudioUrl != null ? mainAudioUrl : "");
+        // 无音频段时时长归 0；有音频按 4.5 字/秒估算
+        int estimatedDuration = audioSections.isEmpty() ? 0
+                : Math.max(5,
+                        (int) (audioSections.stream()
+                                .mapToInt(s -> s.getContent() != null ? s.getContent().length() : 0).sum()
+                                / 4.5));
         creation.setAudioDuration(estimatedDuration);
         creation.setIsPublished(1);
         userCreationMapper.insert(creation);
@@ -950,11 +966,13 @@ public class StudioService {
         work.setContentType(mapContentType(project.getTypeCode()));
         work.setDescription(description);
         work.setSourceProjectId(project.getId());
-        work.setAudioUrl(mainAudioUrl);
-        int workDuration = Math.max(5,
-                (int) (audioSections.stream().mapToInt(s -> s.getContent() != null ? s.getContent().length() : 0).sum()
-                        / 4.5));
-        work.setAudioDuration(audioSections.isEmpty() ? 0 : workDuration);
+        work.setAudioUrl(mainAudioUrl != null ? mainAudioUrl : "");
+        int workDuration = audioSections.isEmpty() ? 0
+                : Math.max(5,
+                        (int) (audioSections.stream()
+                                .mapToInt(s -> s.getContent() != null ? s.getContent().length() : 0).sum()
+                                / 4.5));
+        work.setAudioDuration(workDuration);
 
         if (isNovel) {
             work.setWordCount(totalWordCount);
