@@ -4,6 +4,116 @@
 
 ---
 
+## [2026-03-09 Round 2] — 规范扫描第二轮整改
+
+### 📋 背景
+对剩余遗留问题进行扫描整改（支付和短信模块保持 mock，不在本轮范围内）。
+
+---
+
+### 🔧 后端变更
+
+#### `VipService.java`
+
+| 类型 | 改动 |
+|------|------|
+| 🔴 **`@Transactional` 缺 rollbackFor** | `@Transactional` → `@Transactional(rollbackFor = Exception.class)`（阿里【强制】：受检异常必须显式声明回滚）|
+| 🟡 if 无花括号 | `activateVip()` 方法的早返回 `if` 语句补全花括号 |
+
+#### `SoundReadTools.java`（5 处）
+
+| 类型 | 改动 |
+|------|------|
+| 🟡 英文错误日志 | `log.error("listVoices error", e)` → `log.error("[SoundReadTools] 查询音色列表失败: userId={}", ..., e)` |
+| 🟡 英文错误日志 | `log.error("generateScript error", e)` → 含 theme/emotion/wordCount 上下文 |
+| 🟡 英文错误日志 | `log.error("analyzeEmotion error", e)` → 含 textLen 上下文 |
+| 🟡 英文错误日志 | `log.error("synthesizeSpeech error", e)` → 含 voiceId/textLen 上下文 |
+| 🟡 英文错误日志 | `log.error("listMyWorks error", e)` → 含 userId 上下文 |
+
+#### `SpeechWebSocketClient.java`（3 处）
+
+| 类型 | 改动 |
+|------|------|
+| 🟡 英文日志 | `"Received unexpected text message"` → `"[SpeechWS] 收到意外的文本消息（预期为二进制帧）"` |
+| 🟡 英文日志 | `"Failed to parse message"` → `"[SpeechWS] 消息解析失败"` |
+| 🟡 英文日志 | `"WebSocket error"` → `"[SpeechWS] WebSocket 连接异常"` |
+| 🟢 异常消息 | `RuntimeException("Unexpected message")` → 含 type/event 期望值的中文描述 |
+
+#### `NovelPipelineService.java`
+
+| 类型 | 改动 |
+|------|------|
+| 🟡 英文警告日志 | `"Emotion annotation failed: segmentId={}, using default"` → `"[NovelPipeline] 情感标注失败，使用默认风格"` |
+
+#### `TtsDramaService.java`
+
+| 类型 | 改动 |
+|------|------|
+| 🟡 日志前缀不统一 | `"Drama引擎ERROR"` → `"[TtsDrama] WebSocket 服务端返回错误"` |
+
+#### `Tts1Client.java`（9 处）
+
+| 类型 | 改动 |
+|------|------|
+| 🟡 HashMap 无初始容量 | `synthesize()` headers: `new HashMap<>()` → `new HashMap<>(4)` |
+| 🟡 HashMap 无初始容量 | `createLongTextTask()` requestBody: `new HashMap<>()` → `new HashMap<>(8)` |
+| 🟡 HashMap 无初始容量 | `createLongTextTask()` headers: `new HashMap<>()` → `new HashMap<>(4)` |
+| 🟡 HashMap 无初始容量 | `queryLongTextTask()` headers: `new HashMap<>()` → `new HashMap<>(4)` |
+| 🟡 HashMap 无初始容量 | `buildRequestBody()` request: `new HashMap<>()` → `new HashMap<>(4)` |
+| 🟡 HashMap 无初始容量 | `buildRequestBody()` app: `new HashMap<>()` → `new HashMap<>(4)` |
+| 🟡 HashMap 无初始容量 | `buildRequestBody()` user: `new HashMap<>()` → `new HashMap<>(2)` |
+| 🟡 HashMap 无初始容量 | `buildRequestBody()` audio: `new HashMap<>()` → `new HashMap<>(8)` |
+| 🟡 HashMap 无初始容量 | `buildRequestBody()` req: `new HashMap<>()` → `new HashMap<>(4)` |
+| 🟢 注释 | 各 Map 初始化处补充初始容量来源注释（字段数量说明）|
+
+---
+
+### 🔧 前端变更
+
+#### `StudioWorkbench.vue`（5 处）
+
+| 类型 | 改动 |
+|------|------|
+| 🟡 `console.log` | `generateMasterOutline()` 大纲调试日志 × 2：`console.log` → `console.debug`（生产环境自动屏蔽）|
+| 🟡 `console.log` | 策略 2 成功提示：`console.log` → `console.debug` |
+| 🟡 `console.log` | `generateChapterOutlines()` 细纲调试日志 × 2：`console.log` → `console.debug` |
+
+---
+
+### ⏭️ 本轮跳过（用户决策）
+
+| 项目 | 原因 |
+|------|------|
+| `VipService.java` 接入真实支付 | 当前保持 mock，待 MVP 后再对接 |
+| `AuthService.java` 接入真实短信 | 当前保持 mock，待 MVP 后再对接 |
+| `InteractionWebSocketHandler.java` Token 鉴权 | 改动范围较大，单独 Issue 处理 |
+
+---
+
+### 🚀 Git Commit
+
+```
+0e83911 refactor: fix @Transactional rollbackFor, English logs, HashMap capacity, console.debug in StudioWorkbench
+```
+
+---
+
+### ⚠️ 剩余待处理
+
+| 优先级 | 位置 | 说明 |
+|--------|------|------|
+| 🔴 高 | `InteractionWebSocketHandler.java` | WebSocket 握手 Token 鉴权（安全漏洞，单独实现）|
+| 🟡 中 | `NovelPipelineService.java` Stage 3 | TTS 2.0 批量合成链路接入 |
+| 🟡 中 | `VipService.java` | 接入真实支付（微信/支付宝）—— 用户确认 mock |
+| 🟡 中 | `AuthService.java` | 接入真实短信 —— 用户确认 mock |
+| 🟢 低 | `VoiceSelector.vue` | 音色试听功能接入 |
+| 🟢 低 | `player.js` / `useWebSocket.js` | 框架调试日志（带模块前缀，可接受）|
+
+---
+
+
+---
+
 ## [2026-03-09] — 代码规范整改（阿里巴巴 Java 开发手册）
 
 ### 📋 背景
