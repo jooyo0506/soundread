@@ -38,10 +38,10 @@ public abstract class BaseClient {
      */
     protected void validate() {
         if (appId == null || appId.isEmpty()) {
-            log.warn("AppId is not configured");
+            log.warn("[SDK] AppId 未配置，请检查 application.yml 中的 volcengine.tts.app-id");
         }
         if (accessToken == null || accessToken.isEmpty()) {
-            log.warn("AccessToken is not configured");
+            log.warn("[SDK] AccessToken 未配置，请检查 application.yml 中的 volcengine.tts.access-token");
         }
     }
 
@@ -63,8 +63,7 @@ public abstract class BaseClient {
         }
         if (text.length() > maxLength) {
             throw new SdkException.ValidationException(
-                    fieldName + " length exceeds maximum " + maxLength + " characters"
-            );
+                    fieldName + " length exceeds maximum " + maxLength + " characters");
         }
     }
 

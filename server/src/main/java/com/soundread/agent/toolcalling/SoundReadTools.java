@@ -181,7 +181,7 @@ public class SoundReadTools {
 
     @Tool("查询当前用户的创作作品列表，返回作品标题、类型、创建时间。当用户问'我有哪些作品'、'我的创作'、'历史记录'时调用。")
     public String listMyWorks() {
-        log.info("listMyWorks called");
+        log.info("[SoundReadTools] 查询我的作品列表: userId={}", getUser().getId());
         try {
             User user = getUser();
             var page = creationService.listByUser(user.getId(), null, 1, 10);
