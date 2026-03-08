@@ -1988,15 +1988,9 @@ const getValidSection = (chapterIdx) => {
   return sections.value.find(s => s.sectionIndex === chapterIdx && isValidChapterContent(s.content))
 }
 
-/** 完结发布：标记项目为已完成 */
+/** 完结发布：调用正式发布流程，生成发现页 Work 记录 */
 const publishNovel = async () => {
-  try {
-    await studioApi.updateProject(projectId.value, { status: 'completed' })
-    await loadProject()
-    toastStore.show('🎉 小说已完结发布！')
-  } catch (e) {
-    toastStore.show('发布失败: ' + (e.message || '网络错误'))
-  }
+  await publishProject()
 }
 const genProgress = computed(() => {
   if (!generating.value) return 0
