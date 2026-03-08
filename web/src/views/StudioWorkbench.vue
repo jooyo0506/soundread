@@ -517,8 +517,16 @@
                     class="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black text-sm font-black cursor-pointer hover:shadow-lg hover:shadow-amber-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
               <i class="fas fa-trophy"></i> 🏆 完结发布
             </button>
-            <div v-else class="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold">
-              <i class="fas fa-check-circle"></i> 已完结发布
+            <div v-else class="flex items-center gap-2">
+              <div class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold">
+                <i class="fas fa-check-circle"></i> 已完结发布
+              </div>
+              <button @click="unpublishProject" :disabled="publishing"
+                      class="px-4 py-3 rounded-xl text-[11px] font-bold cursor-pointer transition-all bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center gap-1 shrink-0">
+                <i v-if="publishing" class="fas fa-circle-notch fa-spin"></i>
+                <i v-else class="fas fa-eye-slash"></i>
+                {{ publishing ? '' : '下架' }}
+              </button>
             </div>
 
             <!-- 返回项目 -->
