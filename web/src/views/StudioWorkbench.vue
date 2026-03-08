@@ -1226,8 +1226,14 @@
                 <i v-else class="fas fa-rocket"></i>
                 {{ publishing ? '发布中...' : '🚀 发布到发现页' }}
               </button>
-              <div v-else class="text-center py-2">
+              <div v-else class="flex items-center justify-between py-2">
                 <span class="text-green-400 font-bold text-sm"><i class="fas fa-check-circle mr-1"></i> ✅ 已发布</span>
+                <button @click="unpublishProject" :disabled="publishing"
+                        class="px-3 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center gap-1">
+                  <i v-if="publishing" class="fas fa-circle-notch fa-spin"></i>
+                  <i v-else class="fas fa-eye-slash"></i>
+                  {{ publishing ? '' : '下架' }}
+                </button>
               </div>
             </div>
           </div>
@@ -1627,8 +1633,16 @@
                 <i v-else class="fas fa-rocket"></i>
                 {{ publishing ? '发布中...' : '🚀 发布到发现页' }}
               </button>
-              <div v-else class="flex-1 py-2.5 rounded-xl bg-green-500/10 text-green-400 text-xs font-bold flex items-center justify-center gap-1.5">
-                <i class="fas fa-check-circle"></i> ✅ 已发布到发现页
+              <div v-else class="flex-1 flex items-center gap-2">
+                <div class="flex-1 py-2.5 rounded-xl bg-green-500/10 text-green-400 text-xs font-bold flex items-center justify-center gap-1.5">
+                  <i class="fas fa-check-circle"></i> ✅ 已发布
+                </div>
+                <button @click="unpublishProject" :disabled="publishing"
+                        class="px-3 py-2.5 rounded-xl text-[11px] font-bold cursor-pointer transition-all bg-red-500/10 text-red-400 hover:bg-red-500/20 flex items-center gap-1 shrink-0">
+                  <i v-if="publishing" class="fas fa-circle-notch fa-spin"></i>
+                  <i v-else class="fas fa-eye-slash"></i>
+                  {{ publishing ? '' : '下架' }}
+                </button>
               </div>
             </div>
           </div>
