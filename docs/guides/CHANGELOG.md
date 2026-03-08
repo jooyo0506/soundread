@@ -4,7 +4,65 @@
 
 ---
 
-## [2026-03-09 Round 2] — 规范扫描第二轮整改
+## [2026-03-09 Round 3] — WebSocket 安全鉴权
+
+### 📋 背景
+`/ws/interaction`（边听边问）端点此前无任何身份验证。攻击者可不带 Token 直接建立 WebSocket 连接，调用语音交互接口，属于高危安全漏洞。
+
+---
+
+### 🔒 `InteractionWebSocketHandler.java` — 完整重写
+
+| 类型 | 改动 |
+|------|------|
+| 🔴 **安全漏洞修复** | 连接建立（`afterConnectionEstablished`）时强制验证 Sa-Token |
+| 🔴 **Token 提取** | 新增 `extractToken()` 方法，从 URI query params 中解析 `?satoken=xxx` |
+| 🔴 **失败即断连** | Token 缺失或无效时调用 `session.close(CloseStatus.NOT_ACCEPTABLE)`，不处理任何消息 |
+| 🟡 **userId 缓存** | 认证通过后将 `userId` 存入 `session.getAttributes()`，后续 handler 直接读取，避免重复校验 |
+| 🟡 **守卫检查** | `handleBinaryMessage` / `handleTextMessage` 增加 `userId == null` 防御检查 |
+| 🟡 **日志规范** | 全部日志带 `[InteractionWS]` 前缀和 `userId` 上下文 |
+| 🟡 **JSONObject 容量** |事件 Map 统一指定初始容量（`new JSONObject(4)`）|
+| 🟢 **注释完善** | 添加 Javadoc 说明协议格式、连接方式（前端 wss URL 示例）|
+
+**前端接入方式（无需改动后端）：**
+```javascript
+// 连接时在 URL 中携带 token
+const ws = new WebSocket(`wss://host/ws/interaction?satoken=${token}`)
+```
+
+---
+
+### 🚀 Git Commit
+
+```
+1d7a730 fix: 补全 WebSocket 鉴权，修复边听边问接口无 Token 校验的安全漏洞
+```
+
+---
+
+### ✅ 全部高优先项已清零
+
+| 优先级 | 状态 | 说明 |
+|--------|------|------|
+| 🔴 `InteractionWebSocketHandler` 鉴权 | ✅ **已完成** | Sa-Token Token 校验 |
+| 🔴 `VipService @Transactional rollbackFor` | ✅ **已完成** | 上轮 |
+| 🟡 英文日志统一 | ✅ **已完成** | 多文件 |
+| 🟡 HashMap 初始容量 | ✅ **已完成** | 多文件 |
+| 🟡 console.log 清理 | ✅ **已完成** | 前端 |
+
+### ⚠️ 剩余（功能性 TODO，非规范问题）
+
+| 优先级 | 位置 | 说明 |
+|--------|------|------|
+| 🟡 中 | `NovelPipelineService` Stage 3 | TTS 2.0 有声书批量合成链路 |
+| 🟡 中 | `VipService` | 真实支付对接（mock 已确认） |
+| 🟡 中 | `AuthService` | 真实短信对接（mock 已确认） |
+| 🟢 低 | `VoiceSelector.vue` | 音色试听播放 |
+| 🟢 低 | `AiInteractionService` | 边听边问 ASR→LLM→TTS 完整链路 |
+
+---
+
+
 
 ### 📋 背景
 对剩余遗留问题进行扫描整改（支付和短信模块保持 mock，不在本轮范围内）。
