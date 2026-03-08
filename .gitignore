@@ -33,8 +33,7 @@ data/
 # ── Redis ──
 dump.rdb
 
-# ── AI Tools (keep local, not for public repo) ──
-CLAUDE.md
+# ── AI Tools ──
 claude.json
 .claude/
 mcp-servers/
