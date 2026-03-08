@@ -1,0 +1,125 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: soundread-server
+  datasource:
+    url: jdbc:mysql://localhost:3306/sound_read?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD:your-db-password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      password: ${REDIS_PASSWORD:your-redis-password}
+      database: 0
+
+# Sa-Token 配置
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000        # 30天 (秒)
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: true
+  jwt-secret-key: ${JWT_SECRET:your-jwt-secret-key}
+
+# MyBatis-Plus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# Cloudflare R2 存储
+r2:
+  access-key-id: ${R2_ACCESS_KEY_ID:your-r2-access-key}
+  secret-access-key: ${R2_SECRET_ACCESS_KEY:your-r2-secret-key}
+  bucket-name: ${R2_BUCKET_NAME:your-bucket-name}
+  endpoint: ${R2_ENDPOINT:https://your-account-id.r2.cloudflarestorage.com}
+  public-domain: ${R2_PUBLIC_DOMAIN:https://your-r2-domain.com}
+
+# 火山引擎配置
+volcengine:
+  # 认证
+  auth:
+    api-key: ${VOLCENGINE_API_KEY:your-volcengine-api-key}
+    secret-key: ${VOLCENGINE_SECRET_KEY:your-volcengine-secret-key}
+  # TTS v1.0
+  tts:
+    app-id: ${VOLCENGINE_APP_ID:your-app-id}
+    access-token: ${VOLCENGINE_ACCESS_TOKEN:your-access-token}
+    cluster: volcano_tts
+    resource-id: volc.tts_async.default
+  # TTS v2.0 双向流式
+  tts-v2:
+    ws-url: wss://openspeech.bytedance.com/api/v3/tts/bidirection
+    resource-id: seed-tts-2.0
+    enabled: true
+  # 播客 TTS
+  podcast:
+    app-id: ${VOLCENGINE_PODCAST_APP_ID:your-podcast-app-id}
+    access-token: ${VOLCENGINE_PODCAST_ACCESS_TOKEN:your-podcast-access-token}
+    endpoint: wss://openspeech.bytedance.com/api/v3/sami/podcasttts
+    resource-id: volc.service_type.10050
+    enabled: true
+
+# LangChain4j 自动装配 (保留: 供不走 LlmRouter 的场景兜底)
+langchain4j:
+  open-ai:
+    streaming-chat-model:
+      api-key: ${DOUBAO_API_KEY:your-llm-api-key}
+      model-name: ${DOUBAO_MODEL_ID:your-model-endpoint-id}
+      base-url: ${DOUBAO_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+      temperature: 0.7
+
+# AI 大模型统一配置 (三级瀑布降级的 Level 2 — 系统基线)
+# Level 1: sys_tier_policy.resource_rules (运营后台, 最高优先级)
+# Level 2: 此处配置 (开发人员管控)
+# Level 3: Java 代码默认值 (兜底)
+ai:
+  llm:
+    default-provider: doubao                # 默认供应商
+    default-model: ${DOUBAO_MODEL_ID:your-model-endpoint-id}
+    default-base-url: ${DOUBAO_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+    temperature: 0.7
+    max-tokens: 4096
+    api-keys:                               # 各供应商 API Key (敏感, 不进策略表)
+      doubao: ${DOUBAO_API_KEY:your-doubao-key}
+      deepseek: ${DEEPSEEK_API_KEY:your-deepseek-key}
+      qwen: ${QWEN_API_KEY:your-qwen-key}
+      minimax: ${MINIMAX_API_KEY:your-minimax-key}
+  whisper:
+    api-key: ${WHISPER_API_KEY:your-whisper-key}
+    base-url: ${WHISPER_BASE_URL:https://api.openai.com}
+  vector-db:
+    host: ${VECTOR_DB_HOST:localhost}
+    port: ${VECTOR_DB_PORT:19530}
+
+# RocketMQ
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:localhost:9876}
+  producer:
+    group: soundread-producer
+
+# 配额限制
+quota:
+  free:
+    daily-text-chars: 100
+    daily-ask-count: 3
+  vip:
+    daily-text-chars: -1     # -1 表示无限
+    daily-ask-count: -1
+
+logging:
+  level:
+    com.soundread: DEBUG

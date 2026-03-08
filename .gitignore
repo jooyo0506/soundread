@@ -1,0 +1,43 @@
+# ── Build ──
+target/
+*.class
+*.jar
+*.war
+dist/
+
+# ── IDE ──
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# ── Logs ──
+*.log
+logs/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Dependencies ──
+node_modules/
+
+# ── Environment ──
+.env
+*.local
+**/application.yml
+
+# ── Test Data ──
+data/
+
+# ── Redis ──
+dump.rdb
+
+# ── AI Tools (keep local, not for public repo) ──
+CLAUDE.md
+claude.json
+.claude/
+mcp-servers/
+
+# ── Personal ──
+*.bak

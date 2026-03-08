@@ -1,0 +1,745 @@
+<template>
+  <div class="h-full overflow-y-auto hide-scrollbar bg-gradient-to-b from-[#0a0a1a] to-[#050510]">
+    <!-- Header -->
+    <div class="sticky top-0 z-30 px-4 pt-12 pb-2.5 bg-gradient-to-b from-[#0a0a1a] to-[#0a0a1a]/95 backdrop-blur-xl">
+      <div class="flex items-center gap-2.5">
+        <button @click="goBack" class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex justify-center items-center text-white cursor-pointer active:scale-95 transition-transform">
+          <i class="fas fa-chevron-left text-xs"></i>
+        </button>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-base font-bold text-white flex items-center gap-1.5">🎙️ AI 声音工坊</h1>
+          <p class="text-[9px] text-gray-500">一句话完成有声内容制作</p>
+        </div>
+        <button @click="clearChat" v-if="messages.length > 1"
+                class="text-[10px] text-gray-500 hover:text-white transition-colors px-2 py-1 rounded-lg bg-white/5 border border-white/10 active:scale-95">
+          <i class="fas fa-redo-alt mr-0.5"></i>重置
+        </button>
+      </div>
+    </div>
+
+    <!-- Scene Selector -->
+    <div v-if="!activeScene && !hasUserMessages" class="px-4 pt-1 pb-3">
+      <h3 class="text-[11px] font-bold text-gray-400 mb-2.5 tracking-wider">🎬 选择创作场景</h3>
+      <div class="grid grid-cols-3 gap-2">
+        <div v-for="scene in scenes" :key="scene.id" @click="applyScene(scene)"
+             class="relative rounded-xl p-2.5 cursor-pointer transition-all active:scale-[0.95] border overflow-hidden"
+             :class="scene.borderClass">
+          <div class="text-xl mb-1">{{ scene.emoji }}</div>
+          <h4 class="text-white text-xs font-bold leading-tight">{{ scene.title }}</h4>
+          <p class="text-[9px] text-gray-500 mt-0.5 leading-tight line-clamp-1">{{ scene.desc }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selected Scene Badge -->
+    <div v-if="activeScene && !hasUserMessages" class="px-4 pt-1 pb-1">
+      <div class="flex items-center gap-2">
+        <span class="text-xs bg-white/5 border border-white/10 rounded-full px-2.5 py-1 text-gray-300 flex items-center gap-1">
+          {{ activeScene.emoji }} {{ activeScene.title }}
+        </span>
+        <button @click="resetScene" class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">
+          <i class="fas fa-times"></i> 换场景
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Messages -->
+    <div ref="chatContainer" class="px-4 pb-32">
+      <div v-for="(msg, idx) in messages" :key="idx" class="mb-3">
+
+        <!-- AI Message -->
+        <div v-if="msg.role === 'ai'" class="flex gap-2">
+          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] shrink-0 shadow-[0_0_10px_rgba(34,211,238,0.25)] mt-0.5">
+            <i class="fas fa-robot"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
+            <div class="ai-msg-content bg-white/[0.04] border border-white/[0.08] rounded-2xl rounded-tl-sm p-3 text-[13px] text-gray-200 leading-relaxed" v-html="renderMarkdown(msg.text)"></div>
+
+            <!-- ★ Action Buttons (welcome / post-synthesis) -->
+            <div v-if="msg.actions && msg.actions.length" class="mt-2 flex flex-wrap gap-1.5">
+              <button v-for="action in msg.actions" :key="action.label"
+                      @click="handleAction(action)"
+                      class="px-3 py-1.5 rounded-full text-[11px] font-medium border transition-all active:scale-95 cursor-pointer"
+                      :class="action.style || 'bg-white/5 border-white/10 text-gray-300 active:bg-cyan-500/10 active:border-cyan-500/30 active:text-cyan-300'">
+                <i v-if="action.icon" :class="action.icon" class="mr-1 text-[10px]"></i>{{ action.label }}
+              </button>
+            </div>
+
+            <!-- ★ Enhanced Audio Player -->
+            <div v-if="msg.audioUrl" class="mt-1.5 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-2.5">
+              <div class="flex items-center gap-2.5">
+                <button @click="playAudio(msg.audioUrl)"
+                        class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex justify-center items-center text-white shadow-[0_0_12px_rgba(34,211,238,0.35)] active:scale-90 transition-transform cursor-pointer shrink-0">
+                  <i :class="currentAudio === msg.audioUrl ? 'fas fa-pause' : 'fas fa-play'" class="text-xs"></i>
+                </button>
+                <div class="flex-1 min-w-0">
+                  <div class="text-[11px] text-white font-bold">🎵 语音合成完成</div>
+                  <!-- Progress bar -->
+                  <div class="mt-1 h-1 bg-white/10 rounded-full overflow-hidden cursor-pointer" @click="seekAudio($event, msg.audioUrl)">
+                    <div class="h-full bg-gradient-to-r from-cyan-400 to-blue-400 rounded-full transition-all duration-200"
+                         :style="{ width: currentAudio === msg.audioUrl ? audioProgress + '%' : '0%' }"></div>
+                  </div>
+                  <div class="flex justify-between mt-0.5">
+                    <span class="text-[9px] text-gray-500">{{ currentAudio === msg.audioUrl ? formatTime(audioCurrentTime) : '0:00' }}</span>
+                    <span class="text-[9px] text-gray-500">{{ currentAudio === msg.audioUrl && audioDuration ? formatTime(audioDuration) : '--:--' }}</span>
+                  </div>
+                </div>
+                <a :href="msg.audioUrl" download class="text-cyan-400 text-xs hover:text-cyan-300 transition-colors p-1">
+                  <i class="fas fa-download"></i>
+                </a>
+              </div>
+              <!-- ★ Saved to library hint -->
+              <div class="mt-1.5 flex items-center gap-1 text-[9px] text-green-400/70">
+                <i class="fas fa-check-circle"></i> 已保存到创作库
+              </div>
+            </div>
+
+            <!-- Pipeline Steps -->
+            <div v-if="msg.steps && msg.steps.length" class="mt-1.5 space-y-0.5">
+              <div v-for="(step, si) in msg.steps" :key="si"
+                   class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px]"
+                   :class="step.done ? 'bg-green-500/5 text-green-400' : 'bg-white/[0.02] text-gray-500'">
+                <i :class="step.done ? 'fas fa-check-circle text-green-400' : 'far fa-circle text-gray-600'" class="text-[10px]"></i>
+                <span>{{ step.label }}</span>
+                <span v-if="step.detail" class="text-gray-500 truncate flex-1 text-right">{{ step.detail }}</span>
+              </div>
+            </div>
+
+            <!-- ★ Regenerate button (on non-welcome AI messages) -->
+            <div v-if="idx > 0 && msg.role === 'ai' && !loading" class="mt-1 flex items-center gap-2">
+              <button @click="regenerate(idx)"
+                      class="text-[9px] text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1 cursor-pointer">
+                <i class="fas fa-redo text-[8px]"></i> 重新生成
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Message -->
+        <div v-else class="flex justify-end">
+          <div class="max-w-[78%]">
+            <div class="bg-gradient-to-br from-[#4F46E5] to-[#6366F1] rounded-2xl rounded-tr-sm px-3.5 py-2 text-[13px] text-white leading-relaxed">
+              {{ msg.text }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading indicator with progressive text -->
+      <div v-if="loading" class="flex gap-2 mb-3">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] shrink-0 animate-pulse mt-0.5">
+          <i class="fas fa-robot"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
+          <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl rounded-tl-sm p-3">
+            <div class="flex items-center gap-2 text-[13px] text-gray-400">
+              <i class="fas fa-circle-notch fa-spin text-cyan-400 text-xs"></i>
+              <span>{{ loadingText }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Tags -->
+    <div v-if="activeScene && !hasUserMessages"
+         class="fixed left-0 right-0 px-4 pb-1.5 z-20"
+         :style="{ bottom: inputBarHeight + 'px' }">
+      <div class="flex gap-1.5 overflow-x-auto hide-scrollbar">
+        <button v-for="tag in activeScene.quickTags" :key="tag" @click="sendMessage(tag)"
+                class="shrink-0 px-2.5 py-1.5 rounded-full text-[11px] font-medium bg-white/5 border border-white/10 text-gray-300 active:bg-cyan-500/10 active:border-cyan-500/30 active:text-cyan-300 transition-all cursor-pointer active:scale-95">
+          {{ tag }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Input Bar -->
+    <div ref="inputBar" class="fixed bottom-0 left-0 right-0 bg-[#0a0a1a]/95 backdrop-blur-xl border-t border-white/5 px-3.5 z-30"
+         :class="activeScene && !hasUserMessages ? 'py-2' : 'py-2.5'">
+      <div class="flex gap-2 items-end">
+        <div class="flex-1 relative">
+          <textarea ref="inputEl" v-model="inputText"
+            @keydown.enter.exact.prevent="sendMessage(inputText)"
+            @input="autoResize" :placeholder="inputPlaceholder" rows="1"
+            class="w-full bg-white/5 border border-white/10 rounded-2xl px-3.5 py-2 text-[13px] text-white placeholder-gray-600 resize-none focus:outline-none focus:border-cyan-500/50 transition-colors overflow-hidden"
+            style="max-height: 80px;"></textarea>
+        </div>
+        <button @click="sendMessage(inputText)" :disabled="!inputText.trim() || loading"
+          class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white shrink-0 shadow-[0_0_10px_rgba(34,211,238,0.25)] active:scale-90 transition-all disabled:opacity-30 disabled:shadow-none cursor-pointer mb-0.5">
+          <i class="fas fa-paper-plane text-xs"></i>
+        </button>
+      </div>
+    </div>
+
+    <audio ref="audioPlayer" @ended="onAudioEnded" @timeupdate="onTimeUpdate" @loadedmetadata="onMetadataLoaded"></audio>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
+import request from '../api/request'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const toastStore = useToastStore()
+
+// ═══════════════════════════════════════════════════════
+// Lightweight markdown renderer
+// ═══════════════════════════════════════════════════════
+function renderMarkdown(text) {
+  if (!text) return ''
+  // 安全：转义 HTML 标签（防 XSS）
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // 处理各种 markdown 格式
+  html = html
+    // ``` 代码块
+    .replace(/```([\s\S]*?)```/g, '<pre class="bg-white/5 rounded-lg p-2 my-1 text-[11px] text-cyan-300 overflow-x-auto">$1</pre>')
+    // `行内代码`
+    .replace(/`([^`]+)`/g, '<code class="bg-white/8 px-1 py-0.5 rounded text-[11px] text-cyan-300">$1</code>')
+    // **粗体**
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+    // *斜体*
+    .replace(/(?<![*])\*([^*]+)\*(?![*])/g, '<em class="italic text-gray-300">$1</em>')
+    // --- 分割线
+    .replace(/^---$/gm, '<hr class="border-white/10 my-2">')
+    // > 引用块
+    .replace(/^&gt;\s?(.*)$/gm, '<div class="border-l-2 border-cyan-500/40 pl-2.5 my-0.5 text-gray-400 text-[12px]">$1</div>')
+    // [text](url) — 移除 javascript: 链接（安全）
+    .replace(/\[([^\]]+)\]\(javascript:[^)]*\)/g, '<span class="text-cyan-400">$1</span>')
+    // [text](url) — 正常链接
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-cyan-400 underline hover:text-cyan-300">$1</a>')
+    // 换行
+    .replace(/\n/g, '<br>')
+
+  return html
+}
+
+const inputText = ref('')
+const loading = ref(false)
+const loadingText = ref('思考中...')
+const currentAudio = ref(null)
+const audioProgress = ref(0)
+const audioCurrentTime = ref(0)
+const audioDuration = ref(0)
+const chatContainer = ref(null)
+const audioPlayer = ref(null)
+const inputEl = ref(null)
+const inputBar = ref(null)
+const activeScene = ref(null)
+const inputBarHeight = ref(56)
+let loadingTimer = null
+
+// ═══════════════════════════════════════════════════════
+// Welcome message with action buttons
+// ═══════════════════════════════════════════════════════
+
+const WELCOME_ACTIONS = [
+  { label: '✍️ 写台本', id: 'script', icon: 'fas fa-pen-nib',
+    style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300 active:bg-cyan-500/20' },
+  { label: '🎙️ 合成语音', id: 'synth', icon: 'fas fa-microphone',
+    style: 'bg-blue-500/10 border-blue-500/20 text-blue-300 active:bg-blue-500/20' },
+  { label: '🎭 情感分析', id: 'emotion', icon: 'fas fa-theater-masks',
+    style: 'bg-purple-500/10 border-purple-500/20 text-purple-300 active:bg-purple-500/20' },
+  { label: '📚 我的作品', id: 'works', icon: 'fas fa-folder-open',
+    style: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 active:bg-emerald-500/20' }
+]
+
+function buildWelcomeMessage() {
+  return {
+    role: 'ai',
+    text: '你好！我是你的 AI 声音制作人 🎙️\n\n点击下方功能开始，或直接描述你的需求：',
+    actions: [...WELCOME_ACTIONS]
+  }
+}
+
+// Message list
+const messages = ref([buildWelcomeMessage()])
+
+const hasUserMessages = computed(() => messages.value.some(m => m.role === 'user'))
+
+const inputPlaceholder = computed(() =>
+  activeScene.value ? activeScene.value.placeholder : '描述你想制作的内容...'
+)
+
+// ═══════════════════════════════════════════════════════
+// Scene definitions
+// ═══════════════════════════════════════════════════════
+
+const scenes = [
+  {
+    id: 'radio', emoji: '🎧', title: '深夜电台', desc: '治愈独白·情感',
+    borderClass: 'bg-gradient-to-br from-cyan-900/20 to-[#0a0a1a] border-cyan-500/15 active:border-cyan-500/40',
+    placeholder: '描述你的电台主题...',
+    quickTags: ['深夜雨天的独白', '一个人的咖啡馆', '给过去的自己写信', '城市夜归人的故事']
+  },
+  {
+    id: 'blessing', emoji: '💌', title: '情感祝福', desc: '生日·表白·问候',
+    borderClass: 'bg-gradient-to-br from-pink-900/20 to-[#0a0a1a] border-pink-500/15 active:border-pink-500/40',
+    placeholder: '想送给谁？什么场合？',
+    quickTags: ['给女朋友的生日祝福', '送给妈妈的母亲节寄语', '毕业季给好友的话', '表白独白']
+  },
+  {
+    id: 'video', emoji: '🎬', title: '视频配音', desc: '解说·旁白·Vlog',
+    borderClass: 'bg-gradient-to-br from-orange-900/20 to-[#0a0a1a] border-orange-500/15 active:border-orange-500/40',
+    placeholder: '描述视频内容和风格...',
+    quickTags: ['美食探店解说', '旅行Vlog旁白', '知识科普讲解', '产品开箱评测']
+  },
+  {
+    id: 'story', emoji: '📖', title: '有声故事', desc: '睡前·童话·绘本',
+    borderClass: 'bg-gradient-to-br from-purple-900/20 to-[#0a0a1a] border-purple-500/15 active:border-purple-500/40',
+    placeholder: '想听什么故事？',
+    quickTags: ['给孩子的睡前童话', '一个温暖的冬日故事', '森林里的小动物', '星空下的冒险']
+  },
+  {
+    id: 'commerce', emoji: '🛒', title: '带货口播', desc: '产品·直播话术',
+    borderClass: 'bg-gradient-to-br from-emerald-900/20 to-[#0a0a1a] border-emerald-500/15 active:border-emerald-500/40',
+    placeholder: '什么产品？卖点？',
+    quickTags: ['护肤品种草文案', '美食零食推荐', '数码产品评测口播', '服装穿搭解说']
+  },
+  {
+    id: 'free', emoji: '✨', title: '自由创作', desc: '聊天·AI帮你想',
+    borderClass: 'bg-gradient-to-br from-yellow-900/20 to-[#0a0a1a] border-yellow-500/15 active:border-yellow-500/40',
+    placeholder: '告诉我你想做什么...',
+    quickTags: ['有哪些音色可以选？', '帮我写段深情独白', '我有哪些作品？', '合成一段语音试试']
+  }
+]
+
+// ═══════════════════════════════════════════════════════
+// Action handlers
+// ═══════════════════════════════════════════════════════
+
+function handleAction(action) {
+  const actionMap = {
+    script:  { local: true, reply: '好的！你想写一段什么主题的台本？\n\n比如：\n• 深夜电台独白\n• 给朋友的生日祝福\n• 产品评测解说\n\n告诉我主题和风格，我马上帮你写 ✍️' },
+    synth:   { local: true, reply: '好的！请发一段文字给我，我帮你合成语音 🎙️\n\n你可以：\n• 直接粘贴一段文字\n• 或者先点「写台本」让我帮你创作' },
+    emotion: { local: true, reply: '好的！请发一段文字给我，我来分析它的情感方向 🎭\n\n分析结果包含：情感标签、推荐语气、适合的音色类型。' },
+    works:   { agent: true, command: '请帮我查看我的创作作品列表' },
+    // Post-synthesis actions
+    change_voice: { agent: true, command: '请帮我用另一个音色重新合成刚才的内容，换一个风格不同的声音' },
+    rewrite:      { agent: true, command: '请帮我重写刚才的台本，换一种风格，然后重新合成语音' }
+  }
+
+  const matched = actionMap[action.id]
+  if (!matched) return
+
+  if (matched.local) {
+    messages.value.push({ role: 'ai', text: matched.reply })
+    scrollToBottom()
+  } else {
+    sendMessage(matched.command)
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Scene & navigation
+// ═══════════════════════════════════════════════════════
+
+function applyScene(scene) {
+  activeScene.value = scene
+  const intros = {
+    radio: '🎧 深夜电台模式\n\n我来帮你制作治愈系的电台内容。\n告诉我你的主题和心情，我会为你写词、选声音、录制成品。\n\n👇 试试下方的快捷标签，或直接描述你想要的内容。',
+    blessing: '💌 情感祝福模式\n\n想送一份特别的声音礼物吗？\n告诉我你想送给谁、什么场合，我帮你写词+选声音+录制！',
+    video: '🎬 短视频配音模式\n\n描述你的视频内容和风格，我来帮你写解说词并配音。',
+    story: '📖 有声故事模式\n\n想听什么样的故事？给孩子的睡前故事还是温暖的治愈故事？告诉我，我来创作。',
+    commerce: '🛒 带货口播模式\n\n告诉我你要推荐的产品和卖点，我帮你写口播文案并配上专业的声音！',
+    free: '✨ 自由创作模式\n\n随便告诉我你想做什么！查音色、写台本、分析情感、合成语音，都可以。'
+  }
+  messages.value = [{ role: 'ai', text: intros[scene.id] }]
+  nextTick(() => updateInputBarHeight())
+}
+
+function resetScene() {
+  activeScene.value = null
+  messages.value = [buildWelcomeMessage()]
+}
+
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else router.replace('/')
+}
+
+// ═══════════════════════════════════════════════════════
+// Progressive loading text
+// ═══════════════════════════════════════════════════════
+
+const LOADING_STAGES = [
+  { text: '正在理解你的需求...', delay: 0 },
+  { text: '正在创作台本...', delay: 5000 },
+  { text: '正在选择最佳音色...', delay: 12000 },
+  { text: '正在合成语音，请稍候...', delay: 20000 },
+  { text: '还在努力中，马上就好...', delay: 40000 }
+]
+
+function startLoadingStages() {
+  loadingTimer = []
+  LOADING_STAGES.forEach(stage => {
+    const timer = setTimeout(() => {
+      if (loading.value) loadingText.value = stage.text
+    }, stage.delay)
+    loadingTimer.push(timer)
+  })
+}
+
+function stopLoadingStages() {
+  if (loadingTimer) {
+    loadingTimer.forEach(t => clearTimeout(t))
+    loadingTimer = null
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Send message (core logic)
+// ═══════════════════════════════════════════════════════
+
+async function sendMessage(text) {
+  if (!text || !text.trim() || loading.value) return
+
+  if (!authStore.isLoggedIn) {
+    toastStore.show('请先登录 ✨')
+    router.replace({ name: 'Login', query: { redirect: '/workshop' } })
+    return
+  }
+
+  let userMsg = text.trim()
+  inputText.value = ''
+  if (inputEl.value) inputEl.value.style.height = 'auto'
+  messages.value.push({ role: 'user', text: userMsg })
+  await scrollToBottom()
+
+  // ★ Intercept numbered inputs — ONLY as first interaction (no prior user messages)
+  const isFirstMessage = !messages.value.some((m, i) => m.role === 'user' && i < messages.value.length - 1)
+  const numberMap = { '1': 'script', '2': 'synth', '3': 'emotion', '4': 'works' }
+  if (isFirstMessage && numberMap[userMsg]) {
+    handleAction({ id: numberMap[userMsg] })
+    return
+  }
+
+  loading.value = true
+  startLoadingStages()
+
+  try {
+    const res = await request.post('/agent/chat',
+      { message: userMsg, scene: activeScene.value?.title || '' },
+      { timeout: 120000 }
+    )
+
+    if (res) {
+      let reply = res.reply || '抱歉，我没有理解你的意思。'
+      reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+
+      // Parse audio URL
+      let audioUrl = null
+      const m1 = reply.match(/音频地址[：:]\s*(https?:\/\/[^\s\n\])]+)/i)
+      const m2 = reply.match(/\[.*?\]\((https?:\/\/[^\s)]*audio[^\s)]*)\)/i)
+      const m3 = reply.match(/(https?:\/\/[^\s\n\])]*(?:audio|tts|\.mp3|\.wav)[^\s\n\])]*)/i)
+      audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
+
+      // Pipeline steps
+      const steps = []
+      if (reply.includes('台本') || reply.includes('📝')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
+      if (reply.includes('情感') || reply.includes('🎭')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
+      if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
+      if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
+
+      // Clean reply
+      let cleanReply = reply
+      if (audioUrl) {
+        cleanReply = cleanReply.replace(/\[.*?\]\(https?:\/\/[^\s)]*(?:audio|tts)[^\s)]*\)/gi, '').trim()
+        cleanReply = cleanReply.replace(/音频地址[：:]\s*https?:\/\/[^\s\n]+/gi, '').trim()
+        cleanReply = cleanReply.replace(/https?:\/\/[^\s\n]*(?:audio|tts|\.mp3|\.wav)[^\s\n]*/gi, '').trim()
+        cleanReply = cleanReply.replace(/（合成完毕.*?）/g, '').trim()
+      }
+      cleanReply = cleanReply.replace(/（查询完毕.*?）/g, '').trim()
+      cleanReply = cleanReply.replace(/（分析完毕.*?）/g, '').trim()
+      cleanReply = cleanReply.replace(/（生成完毕.*?）/g, '').trim()
+      cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
+
+      // ★ Post-synthesis quick actions
+      const postActions = audioUrl ? [
+        { label: '🔄 换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
+        { label: '✏️ 重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
+      ] : null
+
+      messages.value.push({
+        role: 'ai',
+        text: cleanReply,
+        audioUrl,
+        steps: steps.length > 0 ? steps : null,
+        actions: postActions
+      })
+
+      // ★ Auto-play: synthesis complete → immediately play
+      if (audioUrl) {
+        await nextTick()
+        autoPlayAudio(audioUrl)
+      }
+    } else {
+      messages.value.push({ role: 'ai', text: '😅 请求失败，请稍后重试' })
+    }
+  } catch (err) {
+    console.error('Agent chat error:', err)
+    messages.value.push({
+      role: 'ai',
+      text: '😅 网络或服务异常，请稍后重试\n' + (err.response?.data?.message || err.message || '')
+    })
+  } finally {
+    loading.value = false
+    stopLoadingStages()
+    saveChat()
+    await scrollToBottom()
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ★ Regenerate
+// ═══════════════════════════════════════════════════════
+
+async function regenerate(aiMsgIdx) {
+  // Find the user message right before this AI message
+  let userMsgIdx = aiMsgIdx - 1
+  while (userMsgIdx >= 0 && messages.value[userMsgIdx].role !== 'user') {
+    userMsgIdx--
+  }
+  if (userMsgIdx < 0) return
+
+  const originalUserMsg = messages.value[userMsgIdx].text
+  // Remove the AI response we're regenerating
+  messages.value.splice(aiMsgIdx, 1)
+  await scrollToBottom()
+
+  // Re-send
+  loading.value = true
+  startLoadingStages()
+
+  try {
+    const res = await request.post('/agent/chat',
+      { message: originalUserMsg, scene: activeScene.value?.title || '' },
+      { timeout: 120000 }
+    )
+
+    if (res) {
+      let reply = res.reply || '抱歉，我没有理解你的意思。'
+      reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+
+      let audioUrl = null
+      const m1 = reply.match(/音频地址[：:]\s*(https?:\/\/[^\s\n\])]+)/i)
+      const m2 = reply.match(/\[.*?\]\((https?:\/\/[^\s)]*audio[^\s)]*)\)/i)
+      const m3 = reply.match(/(https?:\/\/[^\s\n\])]*(?:audio|tts|\.mp3|\.wav)[^\s\n\])]*)/i)
+      audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
+
+      const steps = []
+      if (reply.includes('台本') || reply.includes('📝')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
+      if (reply.includes('情感') || reply.includes('🎭')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
+      if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
+      if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
+
+      let cleanReply = reply
+      if (audioUrl) {
+        cleanReply = cleanReply.replace(/\[.*?\]\(https?:\/\/[^\s)]*(?:audio|tts)[^\s)]*\)/gi, '').trim()
+        cleanReply = cleanReply.replace(/音频地址[：:]\s*https?:\/\/[^\s\n]+/gi, '').trim()
+        cleanReply = cleanReply.replace(/https?:\/\/[^\s\n]*(?:audio|tts|\.mp3|\.wav)[^\s\n]*/gi, '').trim()
+        cleanReply = cleanReply.replace(/（合成完毕.*?）/g, '').trim()
+      }
+      cleanReply = cleanReply.replace(/（查询完毕.*?）/g, '').replace(/（分析完毕.*?）/g, '').replace(/（生成完毕.*?）/g, '').trim()
+      cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
+
+      const postActions = audioUrl ? [
+        { label: '🔄 换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
+        { label: '✏️ 重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
+      ] : null
+
+      messages.value.push({
+        role: 'ai', text: cleanReply, audioUrl,
+        steps: steps.length > 0 ? steps : null,
+        actions: postActions
+      })
+
+      if (audioUrl) {
+        await nextTick()
+        autoPlayAudio(audioUrl)
+      }
+    }
+  } catch (err) {
+    messages.value.push({ role: 'ai', text: '😅 重新生成失败，请稍后重试' })
+  } finally {
+    loading.value = false
+    stopLoadingStages()
+    saveChat()
+    await scrollToBottom()
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ★ Enhanced Audio Player
+// ═══════════════════════════════════════════════════════
+
+function playAudio(url) {
+  if (currentAudio.value === url) {
+    audioPlayer.value.pause()
+    currentAudio.value = null
+    return
+  }
+  currentAudio.value = url
+  audioProgress.value = 0
+  audioCurrentTime.value = 0
+  audioDuration.value = 0
+  audioPlayer.value.src = url
+  audioPlayer.value.play().catch(() => { /* user interaction required */ })
+}
+
+// ★ Auto-play with preload — start loading audio in background
+function autoPlayAudio(url) {
+  currentAudio.value = url
+  audioProgress.value = 0
+  audioCurrentTime.value = 0
+  audioDuration.value = 0
+  // Preload via hidden Audio element first
+  const preloader = new Audio(url)
+  preloader.addEventListener('canplaythrough', () => {
+    // Audio is fully buffered, now play via the real player
+    if (audioPlayer.value && currentAudio.value === url) {
+      audioPlayer.value.src = url
+      audioPlayer.value.play().catch(() => {})
+    }
+  }, { once: true })
+  // Fallback: if preload takes too long, play anyway after 2s
+  setTimeout(() => {
+    if (audioPlayer.value && currentAudio.value === url && audioPlayer.value.src !== url) {
+      audioPlayer.value.src = url
+      audioPlayer.value.play().catch(() => {})
+    }
+  }, 2000)
+}
+
+function onAudioEnded() {
+  currentAudio.value = null
+  audioProgress.value = 0
+  audioCurrentTime.value = 0
+}
+
+function onTimeUpdate() {
+  if (audioPlayer.value) {
+    audioCurrentTime.value = audioPlayer.value.currentTime
+    if (audioDuration.value > 0) {
+      audioProgress.value = (audioPlayer.value.currentTime / audioDuration.value) * 100
+    }
+  }
+}
+
+function onMetadataLoaded() {
+  if (audioPlayer.value && isFinite(audioPlayer.value.duration)) {
+    audioDuration.value = audioPlayer.value.duration
+  }
+}
+
+function seekAudio(event, url) {
+  if (currentAudio.value !== url || !audioDuration.value) return
+  const rect = event.currentTarget.getBoundingClientRect()
+  const percent = (event.clientX - rect.left) / rect.width
+  audioPlayer.value.currentTime = percent * audioDuration.value
+}
+
+function formatTime(seconds) {
+  if (!seconds || !isFinite(seconds)) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// ═══════════════════════════════════════════════════════
+// Chat persistence (localStorage)
+// ═══════════════════════════════════════════════════════
+
+const CHAT_STORAGE_KEY = 'ai_workshop_chat'
+
+function saveChat() {
+  try {
+    const data = {
+      messages: messages.value,
+      scene: activeScene.value?.id || null
+    }
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(data))
+  } catch (e) { /* ignore */ }
+}
+
+function restoreChat() {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY)
+    if (!raw) return
+    const data = JSON.parse(raw)
+    if (data.messages && data.messages.length > 0) {
+      messages.value = data.messages
+      if (data.scene) {
+        activeScene.value = scenes.find(s => s.id === data.scene) || null
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// ═══════════════════════════════════════════════════════
+// Clear chat
+// ═══════════════════════════════════════════════════════
+
+async function clearChat() {
+  activeScene.value = null
+  messages.value = [buildWelcomeMessage()]
+  localStorage.removeItem(CHAT_STORAGE_KEY)
+  try { await request.post('/agent/reset') } catch (e) { /* ignore */ }
+}
+
+// ═══════════════════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════════════════
+
+function autoResize() {
+  const el = inputEl.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 80) + 'px'
+}
+
+function updateInputBarHeight() {
+  if (inputBar.value) inputBarHeight.value = inputBar.value.offsetHeight
+}
+
+async function scrollToBottom() {
+  await nextTick()
+  if (chatContainer.value) {
+    chatContainer.value.parentElement.scrollTop = chatContainer.value.parentElement.scrollHeight
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Lifecycle
+// ═══════════════════════════════════════════════════════
+
+onMounted(() => {
+  // 每次进入工坊从空白开始（不恢复历史对话）
+  updateInputBarHeight()
+  window.addEventListener('resize', updateInputBarHeight)
+
+  // 从首页场景入口跳转过来时，自动发送预设文本
+  const initText = sessionStorage.getItem('workshop_init_text')
+  if (initText) {
+    sessionStorage.removeItem('workshop_init_text')
+    nextTick(() => {
+      inputText.value = initText
+      sendMessage(initText)
+    })
+  }
+})
+
+onBeforeUnmount(() => {
+  stopLoadingStages()
+  window.removeEventListener('resize', updateInputBarHeight)
+})
+</script>

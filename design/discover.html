@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>声读 - 发现</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'sr-orange-start': '#FF9500',
+                        'sr-orange-end': '#FFD60A',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    </style>
+</head>
+<body class="bg-gray-900 flex justify-center items-center min-h-screen font-sans">
+    <div id="app" class="w-[390px] h-[844px] bg-[#050505] rounded-[40px] overflow-hidden relative shadow-2xl flex flex-col border-[8px] border-gray-800">
+
+        <div class="px-5 pt-14 pb-4">
+            <div class="text-center mb-6">
+                <h1 class="text-2xl font-bold text-[#FF9500] tracking-wide mb-1">发现</h1>
+                <p class="text-xs text-gray-500">探索AI语音的无限可能</p>
+            </div>
+
+            <div class="w-full h-28 rounded-2xl bg-gradient-to-r from-purple-900/80 to-pink-900/60 border border-purple-500/30 p-5 relative overflow-hidden mb-6 shadow-lg">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-pink-500/20 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                <div class="relative z-10">
+                    <span class="bg-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider mb-2 inline-block">VIP</span>
+                    <h2 class="text-white font-bold text-lg mb-0.5">专属音色复刻</h2>
+                    <p class="text-gray-300 text-xs">打造你的专属声音</p>
+                </div>
+                <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    <div class="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-[#FF9500]"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-white/30"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-4 overflow-x-auto pb-2 mb-4 hide-scrollbar">
+                <div class="flex flex-col items-center gap-1.5 cursor-pointer group">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-sr-orange-start to-sr-orange-end flex justify-center items-center text-black text-xl shadow-[0_4px_15px_rgba(255,149,0,0.3)]"><i class="fas fa-fire"></i></div>
+                    <span class="text-xs text-white font-bold">热门</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 cursor-pointer opacity-70 hover:opacity-100">
+                    <div class="w-12 h-12 rounded-xl glass-panel flex justify-center items-center text-cyan-400 text-xl"><i class="fas fa-sparkles"></i></div>
+                    <span class="text-xs text-gray-400">最新</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 cursor-pointer opacity-70 hover:opacity-100">
+                    <div class="w-12 h-12 rounded-xl glass-panel flex justify-center items-center text-rose-400 text-xl"><i class="fas fa-heart"></i></div>
+                    <span class="text-xs text-gray-400">情感</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 cursor-pointer opacity-70 hover:opacity-100">
+                    <div class="w-12 h-12 rounded-xl glass-panel flex justify-center items-center text-blue-400 text-xl"><i class="fas fa-book-open"></i></div>
+                    <span class="text-xs text-gray-400">故事</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 cursor-pointer opacity-70 hover:opacity-100">
+                    <div class="w-12 h-12 rounded-xl glass-panel flex justify-center items-center text-gray-300 text-xl"><i class="fas fa-newspaper"></i></div>
+                    <span class="text-xs text-gray-400">新闻</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-5 pb-24">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-white font-bold text-lg">热门作品</h3>
+                <span class="text-xs text-gray-500 cursor-pointer hover:text-white transition-colors">更多 <i class="fas fa-chevron-right text-[10px]"></i></span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-panel rounded-2xl overflow-hidden cursor-pointer group hover:border-white/20 transition-colors">
+                    <div class="h-20 bg-gradient-to-br from-[#4F46E5]/40 to-[#7C3AED]/40 flex justify-center items-center">
+                        <div class="w-10 h-10 bg-white rounded-lg flex justify-center items-center shadow-lg"><i class="fas fa-chart-bar text-[#4F46E5] text-xl"></i></div>
+                    </div>
+                    <div class="p-3">
+                        <h4 class="text-white text-sm font-bold truncate mb-1">特斯拉财报深度解读</h4>
+                        <p class="text-[10px] text-gray-400 mb-2">AI财经</p>
+                        <div class="flex items-center text-[10px] text-gray-500 gap-3">
+                            <span class="flex items-center gap-1"><i class="fas fa-play"></i> 1.2w</span>
+                            <span class="flex items-center gap-1"><i class="fas fa-heart text-rose-500"></i> 560</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl overflow-hidden cursor-pointer group hover:border-white/20 transition-colors">
+                    <div class="h-20 bg-gradient-to-br from-rose-500/40 to-pink-500/40 flex justify-center items-center">
+                        <div class="w-10 h-10 bg-white rounded-lg flex justify-center items-center shadow-lg"><i class="fas fa-fire text-rose-500 text-xl"></i></div>
+                    </div>
+                    <div class="p-3">
+                        <h4 class="text-white text-sm font-bold truncate mb-1">一周热点回顾</h4>
+                        <p class="text-[10px] text-gray-400 mb-2">AI新闻</p>
+                        <div class="flex items-center text-[10px] text-gray-500 gap-3">
+                            <span class="flex items-center gap-1"><i class="fas fa-play"></i> 2.6w</span>
+                            <span class="flex items-center gap-1"><i class="fas fa-heart text-rose-500"></i> 1280</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl overflow-hidden cursor-pointer group hover:border-white/20 transition-colors">
+                    <div class="h-20 bg-gradient-to-br from-amber-500/40 to-orange-500/40 flex justify-center items-center">
+                        <div class="w-10 h-10 bg-white rounded-lg flex justify-center items-center shadow-lg"><i class="fas fa-sack-dollar text-amber-500 text-xl"></i></div>
+                    </div>
+                    <div class="p-3">
+                        <h4 class="text-white text-sm font-bold truncate mb-1">月度经济展望</h4>
+                        <p class="text-[10px] text-gray-400 mb-2">AI财经</p>
+                        <div class="flex items-center text-[10px] text-gray-500 gap-3">
+                            <span class="flex items-center gap-1"><i class="fas fa-play"></i> 1.9w</span>
+                            <span class="flex items-center gap-1"><i class="fas fa-heart text-rose-500"></i> 890</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-0 w-full h-[88px] bg-[#0A0A0A]/90 backdrop-blur-xl border-t border-white/5 flex justify-around items-start pt-3 px-2 z-[40]">
+            <button class="flex flex-col items-center gap-1.5 w-16 text-gray-600"><i class="fas fa-home text-xl"></i><span class="text-[10px]">首页</span></button>
+            <button class="flex flex-col items-center gap-1.5 w-16 text-[#FF9500] font-bold"><i class="fas fa-compass text-xl"></i><span class="text-[10px]">发现</span></button>
+            <button class="flex flex-col items-center gap-1.5 w-16 text-gray-600"><i class="fas fa-pen-nib text-xl"></i><span class="text-[10px]">创作</span></button>
+            <button class="flex flex-col items-center gap-1.5 w-16 text-gray-600"><i class="fas fa-user text-xl"></i><span class="text-[10px]">我的</span></button>
+        </div>
+    </div>
+    <script>const { createApp } = Vue; createApp({}).mount('#app');</script>
+</body>
+</html>

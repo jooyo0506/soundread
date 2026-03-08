@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>声读 - 首页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    </style>
+</head>
+<body class="bg-gray-900 flex justify-center items-center min-h-screen font-sans">
+    <div id="app" class="w-[390px] h-[844px] bg-[#050505] rounded-[40px] overflow-hidden relative shadow-2xl flex flex-col border-[8px] border-gray-800">
+        
+        <div class="flex-1 overflow-y-auto px-5 pt-14 pb-24">
+            <div class="flex justify-between items-center mb-6">
+                <div><h1 class="text-2xl font-bold text-white tracking-wide">声读</h1><p class="text-xs text-gray-500 mt-1">让文字发声，为内容赋能</p></div>
+                <div class="w-10 h-10 rounded-full glass-panel flex justify-center items-center text-white"><i class="fas fa-bell"></i></div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-5 mb-6 relative overflow-hidden group cursor-pointer">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF9500] to-[#FFD60A] flex justify-center items-center text-black text-xl shadow-[0_0_15px_rgba(255,149,0,0.3)]"><i class="fas fa-keyboard"></i></div>
+                    <div><h2 class="text-lg font-bold text-white">文本转语音</h2><p class="text-xs text-gray-400 mt-0.5">输入文字，一键生成专业配音</p></div>
+                </div>
+            </div>
+
+            <h3 class="text-white font-bold mb-3">进阶功能 (PRO)</h3>
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="glass-panel rounded-xl p-4 relative"><div class="absolute top-0 right-0 bg-[#FFD60A] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg">PRO</div><i class="fas fa-podcast text-blue-400 text-xl mb-2"></i><h4 class="text-white text-sm font-semibold">AI 播客</h4><p class="text-[10px] text-gray-500 mt-1">双人自然对谈</p></div>
+                <div class="glass-panel rounded-xl p-4 relative"><div class="absolute top-0 right-0 bg-[#FFD60A] text-black text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg">PRO</div><i class="fas fa-masks-theater text-purple-400 text-xl mb-2"></i><h4 class="text-white text-sm font-semibold">情感合成 v2</h4><p class="text-[10px] text-gray-500 mt-1">语音指令/情绪</p></div>
+                <div class="glass-panel rounded-xl p-4 relative"><i class="fas fa-fingerprint text-green-400 text-xl mb-2"></i><h4 class="text-white text-sm font-semibold">声音复刻</h4><p class="text-[10px] text-gray-500 mt-1">克隆你的声音</p></div>
+                <div class="glass-panel rounded-xl p-4 relative"><i class="fas fa-globe text-cyan-400 text-xl mb-2"></i><h4 class="text-white text-sm font-semibold">同声传译</h4><p class="text-[10px] text-gray-500 mt-1">跨越语言障碍</p></div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-0 w-full h-[88px] bg-[#0A0A0A]/90 backdrop-blur-xl border-t border-white/5 flex justify-around items-start pt-3 px-2 z-[40]">
+            <button class="flex flex-col items-center gap-1.5 w-16 text-[#FF9500] font-bold"><i class="fas fa-home text-xl"></i><span class="text-[10px]">首页</span></button>
+            <button class="flex flex-col items-center gap-1.5 w-16 text-gray-600"><i class="fas fa-compass text-xl"></i><span class="text-[10px]">发现</span></button>
+            <button class="flex flex-col items-center gap-1.5 w-16 text-gray-600"><i class="fas fa-pen-nib text-xl"></i><span class="text-[10px]">创作</span></button>
+            <button class="flex flex-col items-center gap-1.5 w-16 text-gray-600"><i class="fas fa-user text-xl"></i><span class="text-[10px]">我的</span></button>
+        </div>
+    </div>
+    <script>const { createApp } = Vue; createApp({}).mount('#app');</script>
+</body>
+</html>

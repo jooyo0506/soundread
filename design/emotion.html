@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>声读 - 情感合成高级编辑器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar { width: 0px; height: 0px; background: transparent; }
+        .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .instruction-box { background: rgba(255, 149, 0, 0.05); border: 1px solid rgba(255, 149, 0, 0.2); }
+    </style>
+</head>
+<body class="bg-gray-900 flex justify-center items-center min-h-screen font-sans">
+    <div id="app" class="w-[390px] h-[844px] bg-[#050505] rounded-[40px] overflow-hidden relative shadow-2xl flex flex-col border-[8px] border-gray-800">
+        
+        <div class="h-14 flex justify-between items-center px-4 bg-[#050505]/80 backdrop-blur-md z-40 border-b border-white/5 mt-8">
+            <button class="text-white"><i class="fas fa-chevron-left"></i></button>
+            <h1 class="text-white font-bold text-base">情感合成 v2</h1>
+            <button class="text-sm font-bold text-gray-500">草稿箱</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-4 pt-4 pb-24">
+            <div class="flex p-1 bg-black border border-white/10 rounded-xl mb-5">
+                <button @click="mode = 'instruction'" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all" :class="mode === 'instruction' ? 'bg-[#FF9500]/20 text-[#FF9500] border border-[#FF9500]/30' : 'text-gray-500'"><i class="fas fa-magic"></i> 语音指令</button>
+                <button @click="mode = 'context'" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all" :class="mode === 'context' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-gray-500'"><i class="fas fa-quote-left"></i> 引入上文</button>
+            </div>
+
+            <div v-show="mode === 'instruction'" class="instruction-box rounded-2xl p-4 mb-4">
+                <div class="flex items-center gap-2 mb-2"><i class="fas fa-terminal text-[#FF9500] text-xs"></i><span class="text-xs font-bold text-[#FF9500]">自然语言指令 (Prompt)</span></div>
+                <textarea class="w-full bg-transparent text-[#FFD60A] placeholder-[#FF9500]/40 outline-none resize-none text-sm" rows="2" placeholder="例如：用重庆话，带点慵懒的语气..."></textarea>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 flex flex-col min-h-[220px]">
+                <div class="flex items-center gap-2 mb-3 pb-3 border-b border-white/5 overflow-x-auto">
+                    <button class="flex-shrink-0 px-2.5 py-1 rounded bg-[#FF9500]/10 border border-[#FF9500]/30 text-[#FF9500] text-[10px]"><i class="fas fa-plus"></i> 插入【】</button>
+                    <button class="flex-shrink-0 px-2 py-1 rounded bg-white/5 text-gray-300 text-[10px]">【微笑着】</button>
+                    <button class="flex-shrink-0 px-2 py-1 rounded bg-white/5 text-gray-300 text-[10px]">【叹气】</button>
+                </div>
+                <textarea class="w-full flex-1 bg-transparent text-white outline-none resize-none text-[15px]" placeholder="在这里输入要合成的文字台词..."></textarea>
+            </div>
+        </div>
+
+        <div class="absolute bottom-0 w-full p-4 bg-gradient-to-t from-black via-black/90 to-transparent z-40 pb-8">
+            <button class="w-full py-4 rounded-xl bg-gradient-to-r from-[#FF9500] to-[#FFD60A] text-black font-bold text-lg shadow-[0_4px_20px_rgba(255,149,0,0.3)]">合成试听</button>
+        </div>
+    </div>
+    <script>const { createApp, ref } = Vue; createApp({ setup() { return { mode: ref('instruction') } } }).mount('#app');</script>
+</body>
+</html>
