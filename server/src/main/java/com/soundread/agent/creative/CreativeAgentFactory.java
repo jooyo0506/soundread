@@ -1,7 +1,6 @@
 package com.soundread.agent.creative;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -23,9 +22,15 @@ import java.util.Map;
 @Component
 public class CreativeAgentFactory {
 
-    private final Map<String, CreativeAgent> agentMap = new HashMap<>();
+    // 初始容量 16，满足当前 8+ 种 Agent 类型 + 未来扩展，避免扩容
+    private final Map<String, CreativeAgent> agentMap = new HashMap<>(16);
 
-    @Autowired
+    /**
+     * 利用 Spring 的 {@code List<CreativeAgent>} 自动注入，
+     * 将所有 @Component 标注的 CreativeAgent 实现类收集到路由表。
+     *
+     * @param agents Spring 自动收集的全部 CreativeAgent Bean
+     */
     public CreativeAgentFactory(List<CreativeAgent> agents) {
         for (CreativeAgent agent : agents) {
             agentMap.put(agent.getTypeCode(), agent);

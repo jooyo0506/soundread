@@ -383,7 +383,7 @@ public class StudioService {
                 try {
                     emitter.send(SseEmitter.event().data(token));
                 } catch (IOException e) {
-                    log.warn("SSE send failed");
+                    log.warn("[StudioService] SSE 推送 token 失败（客户端可能已断开）: projectId={}", project.getId());
                 }
             }
 
@@ -431,18 +431,19 @@ public class StudioService {
             String outlinePlot, String keyEvents,
             String foreshadowing, String userExtra,
             SseEmitter emitter) {
-        // ?Agent
+        // 校验权限，获取对应类型的创作 Agent
         User user = authService.getCurrentUser();
         StudioProject project = projectMapper.selectById(projectId);
         if (project == null || !project.getUserId().equals(user.getId())) {
-            throw new RuntimeException("项目不存在或无权限");
+            throw new RuntimeException("项目不存在或无权限: projectId=" + projectId);
         }
 
         CreativeAgent agent = agentFactory.getAgent(project.getTypeCode());
+        // 构建章节级别的用户消息（含大纲情节、关键事件、伏笔等上下文）
         String userInput = agent.buildChapterUserMessage(
                 chapterIndex, outlinePlot, keyEvents, foreshadowing, userExtra);
 
-        // chapterIndex?
+        // 指定 chapterIndex 作为目标 sectionIndex，实现按章节覆盖写入
         generateContent(projectId, userInput, emitter, chapterIndex);
     }
 
@@ -488,19 +489,19 @@ public class StudioService {
             throw new RuntimeException("创作模板不存在");
         }
 
-        // ======== ?Agent System Prompt ========
+        // ======== 获取 Agent，构建携带历史记忆的 System Prompt ========
         CreativeAgent agent = agentFactory.getAgent(project.getTypeCode());
 
-        // ?+ RAG?
+        // 双引擎记忆注入：摘要压缩记忆 + pgvector RAG 检索
         List<StudioSection> existingSections = listSections(projectId);
         StringBuilder memoryBuilder = new StringBuilder();
         if (!existingSections.isEmpty()) {
-            // Engine 1:
+            // 引擎 1：摘要记忆（将前 N 段内容摘要拼入 System Prompt）
             String summaryMemory = sectionMemory.buildSummaryMemory(existingSections);
             if (!summaryMemory.isBlank()) {
                 memoryBuilder.append(summaryMemory);
             }
-            // Engine 2: RAG 3+
+            // 引擎 2：RAG 语义检索（段落数 ≥ 3 时启用，检索最相关的 2 段原文）
             if (existingSections.size() >= 3) {
                 sectionMemory.warmUpIndex(projectId, existingSections);
                 String ragContext = sectionMemory.retrieveRelevantContext(projectId, userInput, 2);
@@ -510,21 +511,21 @@ public class StudioService {
             }
         }
 
-        // ?Agent ?System Prompt
+        // 调用 Agent 构建完整 System Prompt（含模板规则 + 记忆上下文）
         String systemPrompt = agent.buildContentSystemPrompt(
                 template, project, existingSections, userInput, memoryBuilder.toString());
 
-        // LlmRouter gent maxTokens ?
+        // 通过 LlmRouter 获取流式模型（由 Agent 指定最大输出 Token 数）
         var streamingModel = llmRouter.getStreamingModelWithFallback(user, agent.getMaxOutputTokens());
         var messages = List.of(
                 new SystemMessage(systemPrompt),
                 new UserMessage(userInput));
 
-        // ?
+        // 将项目状态更新为「生成中」，防止重复触发
         project.setStatus("creating");
         projectMapper.updateById(project);
 
-        //
+        // 累积完整响应文本，用于生成完毕后持久化
         StringBuilder fullResponse = new StringBuilder();
 
         streamingModel.generate(messages, new StreamingResponseHandler<AiMessage>() {
@@ -582,8 +583,10 @@ public class StudioService {
     public void rewriteSection(Long sectionId, String instruction, SseEmitter emitter) {
         User user = authService.getCurrentUser();
         StudioSection section = sectionMapper.selectById(sectionId);
-        if (section == null)
-            throw new RuntimeException("段落不存在");
+        // 【阿里规范】if/else 单行体必须加花括号
+        if (section == null) {
+            throw new RuntimeException("段落不存在: sectionId=" + sectionId);
+        }
         checkSectionOwnership(section);
 
         StudioProject project = projectMapper.selectById(section.getProjectId());
@@ -591,7 +594,7 @@ public class StudioService {
         // Agent Prompt
         CreativeAgent agent = agentFactory.getAgent(project.getTypeCode());
 
-        // ?+ RAG?
+        // 注入历史记忆（摘要 + RAG），保持改写风格与全文一致
         StringBuilder memoryBuilder = new StringBuilder();
         List<StudioSection> allSections = listSections(section.getProjectId());
         if (!allSections.isEmpty()) {
@@ -599,7 +602,7 @@ public class StudioService {
             if (!summaryMemory.isBlank()) {
                 memoryBuilder.append("\n\n").append(summaryMemory);
             }
-            // RAG 3+ API ?
+            // 段落数 ≥ 3 时启用 RAG 检索，给改写模型提供更多上下文
             if (allSections.size() >= 3) {
                 String ragContext = sectionMemory.retrieveRelevantContext(section.getProjectId(), instruction, 2);
                 if (!ragContext.isBlank()) {
@@ -608,7 +611,7 @@ public class StudioService {
             }
         }
 
-        // ?Agent System Prompt?+ + ?
+        // 构建改写专属 System Prompt（含改写指令 + 原有内容 + 记忆上下文）
         String systemPrompt = agent.buildRewriteSystemPrompt(instruction, section.getContent())
                 + memoryBuilder;
         String userInput = instruction;
@@ -627,7 +630,7 @@ public class StudioService {
                 try {
                     emitter.send(SseEmitter.event().data(token));
                 } catch (IOException e) {
-                    log.warn("SSE send failed");
+                    log.warn("[StudioService] 改写 SSE 推送失败（客户端可能已断开）: sectionId={}", sectionId);
                 }
             }
 
@@ -642,7 +645,12 @@ public class StudioService {
 
             @Override
             public void onError(Throwable error) {
-                log.error("[StudioService] rewrite error: ", error);
+                log.error("[StudioService] AI 段落改写异常: sectionId={}", sectionId, error);
+                try {
+                    emitter.send(SseEmitter.event().data("\n\n[AI 改写失败，请重试]"));
+                } catch (Exception ex) {
+                    log.warn("[StudioService] 改写错误 SSE 提示发送失败: {}", ex.getMessage());
+                }
                 emitter.completeWithError(error);
             }
         });
@@ -747,9 +755,8 @@ public class StudioService {
             int targetSectionIndex) {
         int nextIndex;
         if (targetSectionIndex >= 0) {
-            // 指定覆盖：先删除同位置已有段落，再插入新内容
+            // 指定覆盖模式：先删除同位置已有段落，再插入新内容（幂等保证）
             nextIndex = targetSectionIndex;
-            //
             sectionMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<StudioSection>()
                     .eq(StudioSection::getProjectId, project.getId())
                     .eq(StudioSection::getSectionIndex, nextIndex));
@@ -824,8 +831,10 @@ public class StudioService {
      * @return 解析到的 0-based 索引，解析失败返回 -1
      */
     private int parseChapterIndex(String userInput) {
-        if (userInput == null)
+        // 【阿里规范】if 单行体必须加花括号
+        if (userInput == null) {
             return -1;
+        }
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("【章节标题：第(\\d+)章】").matcher(userInput);
         if (m.find()) {
             return Integer.parseInt(m.group(1)) - 1; // 第1章 → index 0
