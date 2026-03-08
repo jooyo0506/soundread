@@ -25,7 +25,7 @@ public class SpeechWebSocketClient extends WebSocketClient {
 
     @Override
     public void onMessage(String message) {
-        log.warn("Received unexpected text message: {}", message);
+        log.warn("[SpeechWS] 收到意外的文本消息（预期为二进制帧）: {}", message);
     }
 
     @Override
@@ -34,7 +34,7 @@ public class SpeechWebSocketClient extends WebSocketClient {
             Message message = Message.unmarshal(bytes.array());
             messageQueue.put(message);
         } catch (Exception e) {
-            log.error("Failed to parse message", e);
+            log.error("[SpeechWS] 消息解析失败", e);
         }
     }
 
@@ -45,7 +45,7 @@ public class SpeechWebSocketClient extends WebSocketClient {
 
     @Override
     public void onError(Exception ex) {
-        log.error("WebSocket error", ex);
+        log.error("[SpeechWS] WebSocket 连接异常", ex);
     }
 
     public void sendStartConnection() throws Exception {
@@ -108,7 +108,7 @@ public class SpeechWebSocketClient extends WebSocketClient {
             if (message.getType() == type && message.getEvent() == event) {
                 return message;
             } else {
-                throw new RuntimeException("Unexpected message: " + message);
+                throw new RuntimeException("[SpeechWS] 收到意外消息（期望 type=" + type + " event=" + event + "）: " + message);
             }
         }
     }

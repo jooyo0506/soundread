@@ -86,11 +86,13 @@ public class VipService {
     /**
      * 支付成功回调 — 激活 VIP
      */
-    @Transactional
+    // 【阿里规范】@Transactional 必须指定 rollbackFor，否则受检异常不会回滚
+    @Transactional(rollbackFor = Exception.class)
     public void activateVip(Long orderId) {
         VipOrder order = vipOrderMapper.selectById(orderId);
-        if (order == null || !"pending".equals(order.getStatus()))
+        if (order == null || !"pending".equals(order.getStatus())) {
             return;
+        }
 
         order.setStatus("paid");
         order.setPaidAt(LocalDateTime.now());

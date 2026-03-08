@@ -76,8 +76,8 @@ public class Tts1Client extends BaseClient {
     /**
      * 短文本语音合成 (同步)
      *
-     * @param text     文本内容 (≤300字符)
-     * @param voiceId  音色ID
+     * @param text    文本内容 (≤300字符)
+     * @param voiceId 音色ID
      * @return 音频数据
      */
     public byte[] synthesize(String text, String voiceId) {
@@ -87,11 +87,11 @@ public class Tts1Client extends BaseClient {
     /**
      * 短文本语音合成 (同步)
      *
-     * @param text       文本内容
-     * @param voiceId    音色ID
-     * @param speedRatio 语速 (0.5-2.0)
+     * @param text        文本内容
+     * @param voiceId     音色ID
+     * @param speedRatio  语速 (0.5-2.0)
      * @param volumeRatio 音量 (0.5-2.0)
-     * @param pitchRatio 音调 (0.5-2.0)
+     * @param pitchRatio  音调 (0.5-2.0)
      * @return 音频数据
      */
     public byte[] synthesize(String text, String voiceId, float speedRatio, float volumeRatio, float pitchRatio) {
@@ -106,8 +106,8 @@ public class Tts1Client extends BaseClient {
             Map<String, Object> requestBody = buildRequestBody(text, voiceId, speedRatio, volumeRatio, pitchRatio);
             String reqBody = JSON.toJSONString(requestBody);
 
-            // 构建请求头
-            Map<String, String> headers = new HashMap<>();
+            // 构建请求头（Host + Authorization，共 2 个字段）
+            Map<String, String> headers = new HashMap<>(4);
             headers.put("Host", HOST);
             headers.put("Authorization", buildAuthHeader());
 
@@ -139,9 +139,9 @@ public class Tts1Client extends BaseClient {
     /**
      * 长文本异步合成 - 创建任务 (支持情感合成)
      *
-     * @param text        文本内容
-     * @param voiceId     音色ID
-     * @param useEmotion  是否使用情感预测版
+     * @param text       文本内容
+     * @param voiceId    音色ID
+     * @param useEmotion 是否使用情感预测版
      * @return 任务ID
      */
     public String createLongTextTask(String text, String voiceId, boolean useEmotion) {
@@ -157,8 +157,8 @@ public class Tts1Client extends BaseClient {
             String submitUrl = useEmotion ? properties.getAsyncEmotionSubmitUrl() : properties.getAsyncSubmitUrl();
             String resourceId = useEmotion ? properties.getEmotionResourceId() : properties.getResourceId();
 
-            // 构建请求
-            Map<String, Object> requestBody = new HashMap<>();
+            // 构建请求体（appid/reqid/text/format/voice_type/sample_rate/enable_subtitle，共 7 个字段）
+            Map<String, Object> requestBody = new HashMap<>(8);
             requestBody.put("appid", appId);
             requestBody.put("reqid", UUID.randomUUID().toString());
             requestBody.put("text", text);
@@ -169,8 +169,8 @@ public class Tts1Client extends BaseClient {
 
             String reqBody = JSON.toJSONString(requestBody);
 
-            // 构建请求头
-            Map<String, String> headers = new HashMap<>();
+            // 构建请求头（Host + Authorization + Resource-Id，共 3 个字段）
+            Map<String, String> headers = new HashMap<>(4);
             headers.put("Host", HOST);
             headers.put("Authorization", buildAuthHeader());
             headers.put("Resource-Id", resourceId);
@@ -199,7 +199,7 @@ public class Tts1Client extends BaseClient {
     /**
      * 长文本异步合成 - 查询任务状态
      *
-     * @param taskId     任务ID
+     * @param taskId 任务ID
      * @return 任务结果
      */
     public TtsResponse queryLongTextTask(String taskId) {
@@ -209,8 +209,8 @@ public class Tts1Client extends BaseClient {
     /**
      * 长文本异步合成 - 查询任务状态
      *
-     * @param taskId      任务ID
-     * @param useEmotion  是否使用情感预测版
+     * @param taskId     任务ID
+     * @param useEmotion 是否使用情感预测版
      * @return 任务结果
      */
     public TtsResponse queryLongTextTask(String taskId, boolean useEmotion) {
@@ -226,8 +226,8 @@ public class Tts1Client extends BaseClient {
             // 构建URL
             String url = queryUrl + "?appid=" + appId + "&task_id=" + taskId;
 
-            // 构建请求头
-            Map<String, String> headers = new HashMap<>();
+            // 构建请求头（Host + Authorization + Resource-Id，共 3 个字段）
+            Map<String, String> headers = new HashMap<>(4);
             headers.put("Host", HOST);
             headers.put("Authorization", buildAuthHeader());
             headers.put("Resource-Id", resourceId);
@@ -258,8 +258,7 @@ public class Tts1Client extends BaseClient {
                         taskId,
                         json.getString("audio_url"),
                         0, // 实际时长需要下载后获取
-                        subtitles
-                );
+                        subtitles);
             } else if (taskStatus == 2) {
                 // 失败
                 return TtsResponse.error("TASK_FAILED", json.getString("message"));
@@ -284,23 +283,24 @@ public class Tts1Client extends BaseClient {
      * 构建请求体
      */
     private Map<String, Object> buildRequestBody(String text, String voiceId,
-                                                  float speedRatio, float volumeRatio, float pitchRatio) {
-        Map<String, Object> request = new HashMap<>();
+            float speedRatio, float volumeRatio, float pitchRatio) {
+        // 顶层请求体（app/user/audio/request，共 4 个字段）
+        Map<String, Object> request = new HashMap<>(4);
 
-        // App信息
-        Map<String, Object> app = new HashMap<>();
+        // App 信息（appid/cluster/token，共 3 个字段）
+        Map<String, Object> app = new HashMap<>(4);
         app.put("appid", appId);
         app.put("cluster", cluster);
         app.put("token", "access_token");
         request.put("app", app);
 
-        // User信息
-        Map<String, Object> user = new HashMap<>();
+        // User 信息（uid，共 1 个字段）
+        Map<String, Object> user = new HashMap<>(2);
         user.put("uid", UUID.randomUUID().toString());
         request.put("user", user);
 
-        // Audio信息
-        Map<String, Object> audio = new HashMap<>();
+        // Audio 参数（voice_type/encoding/speed_ratio/volume_ratio/pitch_ratio，共 5 个字段）
+        Map<String, Object> audio = new HashMap<>(8);
         audio.put("voice_type", voiceId);
         audio.put("encoding", properties.getDefaultEncoding());
         audio.put("speed_ratio", speedRatio);
@@ -308,8 +308,8 @@ public class Tts1Client extends BaseClient {
         audio.put("pitch_ratio", pitchRatio);
         request.put("audio", audio);
 
-        // Request信息
-        Map<String, Object> req = new HashMap<>();
+        // Request 参数（reqid/text/text_type/operation，共 4 个字段）
+        Map<String, Object> req = new HashMap<>(4);
         req.put("reqid", UUID.randomUUID().toString());
         req.put("text", text);
         req.put("text_type", "plain");

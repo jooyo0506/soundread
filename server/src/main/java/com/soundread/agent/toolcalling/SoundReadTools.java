@@ -93,7 +93,7 @@ public class SoundReadTools {
             sb.append("\n您可以根据上述列表，告诉我要使用哪款音色。");
             return sb.toString();
         } catch (Exception e) {
-            log.error("listVoices error", e);
+            log.error("[SoundReadTools] 查询音色列表失败: userId={}", getUser().getId(), e);
             return "音色查询失败：" + e.getMessage();
         }
     }
@@ -113,7 +113,7 @@ public class SoundReadTools {
                             emotion, theme, wordCount));
             return "\n" + result + "\n";
         } catch (Exception e) {
-            log.error("generateScript error", e);
+            log.error("[SoundReadTools] 台本生成失败: theme={}, emotion={}, wordCount={}", theme, emotion, wordCount, e);
             return "台本生成失败：" + e.getMessage();
         }
     }
@@ -132,7 +132,7 @@ public class SoundReadTools {
                     "请分析以下文字的情感倾向，输出：1.主情感标签 2.张力值(0-1) 3.推荐的语气方向 4.推荐的音色类型（男声/女声+风格）。\n文字：" + text);
             return "\n" + result + "\n";
         } catch (Exception e) {
-            log.error("analyzeEmotion error", e);
+            log.error("[SoundReadTools] 情感分析失败: textLen={}", text.length(), e);
             return "情感分析失败：" + e.getMessage();
         }
     }
@@ -170,7 +170,7 @@ public class SoundReadTools {
             return String.format("\n🎶 音频已成功合成！\n播放链接：%s\n使用音色ID：%s\n正文字数：%d字\n",
                     audioUrl, voiceId, text.length());
         } catch (Exception e) {
-            log.error("synthesizeSpeech error", e);
+            log.error("[SoundReadTools] 语音合成失败: voiceId={}, textLen={}", voiceId, text.length(), e);
             return "合成失败：" + e.getMessage() + "。可能是音色ID不正确，请先调用 listVoices 获取正确的音色ID。";
         }
     }
@@ -202,7 +202,7 @@ public class SoundReadTools {
             sb.append("\n（以上只展示最新10条，全部作品请移步创作库查看）");
             return sb.toString();
         } catch (Exception e) {
-            log.error("listMyWorks error", e);
+            log.error("[SoundReadTools] 查询作品列表失败: userId={}", getUser().getId(), e);
             return "作品查询失败：" + e.getMessage();
         }
     }

@@ -224,7 +224,7 @@ public class NovelPipelineService {
                 state.setPreviousSummary(json.getString("summary"));
 
             } catch (Exception e) {
-                log.warn("Emotion annotation failed: segmentId={}, using default", seg.getId(), e);
+                log.warn("[NovelPipeline] 情感标注失败，使用默认风格: segmentId={}", seg.getId(), e);
                 seg.setAnnotatedText(seg.getRawText()); // Fallback: use raw text
                 seg.setContextTexts(null);
                 seg.setEmotionLabel("");

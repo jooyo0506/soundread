@@ -2301,8 +2301,8 @@ const generateMasterOutline = async () => {
     // axios 拦截器已解包 Result.data，resp 直接就是数据
     const fullText = typeof resp === 'string' ? resp : (resp?.data || JSON.stringify(resp) || '')
     const cleaned = sanitizeJsonFromAI(fullText)
-    console.log('[Outline] 大纲原始:', fullText.substring(0, 500))
-    console.log('[Outline] 大纲清洗:', cleaned.substring(0, 500))
+    console.debug('[Outline] 大纲原始:', fullText.substring(0, 500))
+    console.debug('[Outline] 大纲清洗:', cleaned.substring(0, 500))
     
     let data = null
     
@@ -2358,7 +2358,7 @@ const generateMasterOutline = async () => {
         
         if (synopsis || chapters.length > 0) {
           data = { synopsis, characters, chapters }
-          console.log('[Novel] 大纲策略2成功，提取到', chapters.length, '章')
+          console.debug('[Novel] 大纲策略2成功，提取到', chapters.length, '章')
         }
       } catch (e) {
         console.warn('[Novel] 大纲策略2失败:', e.message)
@@ -2486,9 +2486,9 @@ const generateChapterOutlines = async () => {
       outlineStreamText.value = fullText
     }
     
-    console.log('[Novel] 细纲原始:', fullText.substring(0, 500))
+    console.debug('[Novel] 细纲原始:', fullText.substring(0, 500))
     const cleaned = sanitizeJsonFromAI(fullText)
-    console.log('[Novel] 细纲清洗:', cleaned.substring(0, 500))
+    console.debug('[Novel] 细纲清洗:', cleaned.substring(0, 500))
     
     // 多级 JSON 解析回退
     let outlines = null

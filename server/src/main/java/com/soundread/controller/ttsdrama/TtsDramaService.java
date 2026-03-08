@@ -144,7 +144,8 @@ public class TtsDramaService {
                             break;
                         case ERROR:
                             String errorPayload = new String(msg.getPayload(), java.nio.charset.StandardCharsets.UTF_8);
-                            log.error("Drama引擎ERROR: code={}, msg={}", msg.getErrorCode(), errorPayload);
+                            log.error("[TtsDrama] WebSocket 服务端返回错误: code={}, msg={}", msg.getErrorCode(),
+                                    errorPayload);
                             throw new RuntimeException("配音发生错误: " + errorPayload);
                         default:
                             break;
