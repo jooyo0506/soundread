@@ -237,14 +237,19 @@ const playPreviewAudio = (voiceId, name, url) => {
         stopPreview()
     })
 
-    previewAudio.value.addEventListener('error', () => {
-        toastStore.show('试听播放失败')
-        stopPreview()
+    previewAudio.value.addEventListener('error', (e) => {
+        const code = e.target?.error?.code
+        if (code && code !== 1) {
+            toastStore.show('试听播放失败，请重试')
+            stopPreview()
+        }
     })
 
-    previewAudio.value.play().catch(() => {
-        toastStore.show('播放失败，请重试')
-        stopPreview()
+    previewAudio.value.play().catch((err) => {
+        if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+            toastStore.show('播放失败，请重试')
+            stopPreview()
+        }
     })
 
     // 更新进度条

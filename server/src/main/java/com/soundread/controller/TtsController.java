@@ -114,29 +114,40 @@ public class TtsController {
      * <p>
      * 仅用于音色库试听场景，固定合成一段短文本。
      * 不扣费、不检查权限、不保存创作记录。
+     * TTS 2.0 音色暂不支持免费试听，返回提示。
      * </p>
      */
     @PostMapping("/preview")
     public Result<TtsDto.SynthesizeResponse> previewVoice(@RequestBody TtsDto.ShortTextRequest req) {
+        String voiceId = req.getVoiceId();
+        if (voiceId == null || voiceId.isBlank()) {
+            return Result.fail("voiceId 不能为空");
+        }
+
+        // TTS 2.0 音色暂不支持免费试听（没有对应的同步合成适配器）
+        String engine = voiceService.detectVoiceEngine(voiceId);
+        if ("tts-2.0".equals(engine)) {
+            return Result.fail("该音色需要升级才能试听，请前往创作页使用");
+        }
+
         String text = req.getText();
         if (text == null || text.isBlank()) {
             text = "大家好，这是我的声音，希望你会喜欢。";
         }
-        // 限制试听文本长度，防止滥用
         if (text.length() > 50) {
             text = text.substring(0, 50);
         }
 
         try {
-            byte[] audioData = tts1Adapter.synthesize(text, req.getVoiceId(), 1.0f, 1.0f, 1.0f);
-            String audioUrl = r2StorageAdapter.uploadAudio(audioData, "preview_" + req.getVoiceId() + ".mp3");
+            byte[] audioData = tts1Adapter.synthesize(text, voiceId, 1.0f, 1.0f, 1.0f);
+            String audioUrl = r2StorageAdapter.uploadAudio(audioData, "preview_" + voiceId + ".mp3");
 
             TtsDto.SynthesizeResponse resp = new TtsDto.SynthesizeResponse();
             resp.setAudioUrl(audioUrl);
             resp.setDuration(Math.max(1, text.length() / 4));
             return Result.ok(resp);
         } catch (Exception e) {
-            log.warn("[TTS Preview] 试听合成失败 voiceId={}: {}", req.getVoiceId(), e.getMessage());
+            log.warn("[TTS Preview] 试听合成失败 voiceId={}: {}", voiceId, e.getMessage());
             return Result.fail("试听合成失败，请稍后重试");
         }
     }

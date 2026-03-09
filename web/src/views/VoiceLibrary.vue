@@ -278,6 +278,12 @@ const previewVoice = async (voice) => {
     return
   }
 
+  // TTS 2.0 音色无法免费试听（需要 WebSocket 合成）
+  if (activeEngine.value === 'tts-2.0') {
+    toastStore.show('TTS 2.0 音色试听需要在创作页体验 🎤')
+    return
+  }
+
   // 优先级 3: 调用免费试听 API
   previewLoading[voice.voiceId] = true
   try {
@@ -304,11 +310,12 @@ const previewVoice = async (voice) => {
  * 不阻塞 UI，用户可以随时点击试听
  */
 const preloadPreviews = async () => {
+  // TTS 2.0 音色无法用 TTS 1.0 接口合成，跳过
+  if (activeEngine.value === 'tts-2.0') { return }
+
   const needPreload = voices.value.filter(v => !v.previewUrl && !previewCache[v.voiceId])
   for (const voice of needPreload) {
-    // 如果用户已离开页面，停止预加载
     if (!voices.value.length) { break }
-    // 避免重复合成
     if (previewCache[voice.voiceId]) { continue }
     try {
       const res = await ttsApi.preview({
@@ -319,7 +326,7 @@ const preloadPreviews = async () => {
         previewCache[voice.voiceId] = res.audioUrl
       }
     } catch {
-      // 静默失败，不影响用户体验
+      // 静默失败
     }
   }
 }
@@ -333,14 +340,22 @@ const playPreviewAudio = (voiceId, name, url) => {
   previewDuration.value = 0
 
   previewAudio.value.addEventListener('ended', () => { stopPreview() })
-  previewAudio.value.addEventListener('error', () => {
-    toastStore.show('试听播放失败')
-    stopPreview()
+  previewAudio.value.addEventListener('error', (e) => {
+    // MEDIA_ERR_SRC_NOT_SUPPORTED(4) 或 MEDIA_ERR_NETWORK(2) 才是真正的错误
+    const code = e.target?.error?.code
+    if (code && code !== 1) { // code=1 是 MEDIA_ERR_ABORTED（用户主动停止），不提示
+      toastStore.show('试听播放失败，请重试')
+      stopPreview()
+    }
   })
 
-  previewAudio.value.play().catch(() => {
-    toastStore.show('播放失败，请重试')
-    stopPreview()
+  previewAudio.value.play().catch((err) => {
+    // NotAllowedError = 浏览器自动播放策略拦截，但音频通常仍会播放，忽略此错误
+    // AbortError = 切换音色时主动 pause()，忽略
+    if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+      toastStore.show('试听播放失败，请重试')
+      stopPreview()
+    }
   })
 
   progressTimer = setInterval(() => {
