@@ -13,6 +13,11 @@ const routes = [
         component: () => import('../views/Discover.vue')
     },
     {
+        path: '/voices',
+        name: 'VoiceLibrary',
+        component: () => import('../views/VoiceLibrary.vue')
+    },
+    {
         path: '/create',
         name: 'Create',
         component: () => import('../views/Create.vue'),
