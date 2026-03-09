@@ -43,11 +43,30 @@
               class="flex items-center p-3 rounded-xl border transition-all cursor-pointer relative"
               :class="selectedVoiceId === voice.voiceId ? 'bg-[#FF9500]/10 border-[#FF9500]' : 'bg-[#2C2C2E] border-transparent hover:border-white/10'"
             >
-              <!-- 头像区域 (带悬浮播放图标) -->
+              <!-- 头像区域 (带试听播放按钮) -->
               <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex justify-center items-center shrink-0 shadow-lg relative group">
-                <i class="fas fa-user-astronaut text-white/80 group-hover:hidden text-sm"></i>
-                <i v-if="hasAccess(voice)" class="fas fa-play text-white hidden group-hover:block text-xs ml-0.5" @click.stop="previewVoice(voice)"></i>
-                <i v-else class="fas fa-lock text-white/80 hidden group-hover:block text-xs" @click.stop="tryPurchase(voice)"></i>
+                <!-- 默认：用户图标 -->
+                <i v-if="previewingVoiceId !== voice.voiceId && !previewLoading[voice.voiceId]"
+                   class="fas fa-user-astronaut text-white/80 group-hover:hidden text-sm"></i>
+                
+                <!-- 可试听（有权限）：悬浮显示播放按钮 -->
+                <i v-if="hasAccess(voice) && previewingVoiceId !== voice.voiceId && !previewLoading[voice.voiceId]"
+                   class="fas fa-play text-white hidden group-hover:block text-xs ml-0.5"
+                   @click.stop="previewVoice(voice)"></i>
+                
+                <!-- 无权限：悬浮显示锁 -->
+                <i v-if="!hasAccess(voice) && previewingVoiceId !== voice.voiceId"
+                   class="fas fa-lock text-white/80 hidden group-hover:block text-xs"
+                   @click.stop="tryPurchase(voice)"></i>
+
+                <!-- 试听加载中 -->
+                <i v-if="previewLoading[voice.voiceId]"
+                   class="fas fa-circle-notch fa-spin text-[#FF9500] text-sm"></i>
+
+                <!-- 正在试听：显示暂停按钮（常驻，不需要 hover） -->
+                <i v-if="previewingVoiceId === voice.voiceId && !previewLoading[voice.voiceId]"
+                   class="fas fa-pause text-[#FF9500] text-sm"
+                   @click.stop="stopPreview()"></i>
 
                 <!-- 选中角标 -->
                 <div v-if="selectedVoiceId === voice.voiceId" class="absolute -bottom-1 -right-1 bg-[#FF9500] w-4 h-4 rounded-full flex justify-center items-center border-[1.5px] border-[#2C2C2E]">
@@ -67,14 +86,33 @@
             </div>
           </div>
         </div>
+
+        <!-- 底部试听进度条（正在试听时显示） -->
+        <transition name="fade">
+          <div v-if="previewingVoiceId" class="shrink-0 px-5 py-3 border-t border-white/10 bg-[#1C1C1E]">
+            <div class="flex items-center gap-3">
+              <button @click="stopPreview" class="w-8 h-8 rounded-full bg-[#FF9500]/20 flex items-center justify-center cursor-pointer shrink-0">
+                <i class="fas fa-stop text-[#FF9500] text-xs"></i>
+              </button>
+              <div class="flex-1 min-w-0">
+                <p class="text-white text-xs font-bold truncate">🎧 试听: {{ previewingVoiceName }}</p>
+                <div class="w-full h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-[#FF9500] to-amber-400 rounded-full transition-all duration-300"
+                       :style="{ width: previewProgress + '%' }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </transition>
       </div>
     </div>
   </transition>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue'
 import { voiceApi } from '../api/voice'
+import { ttsApi } from '../api/tts'
 import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toast'
@@ -96,6 +134,17 @@ const ownedVoiceIds = ref([])
 const categories = ref([])
 const activeCategory = ref('全部')
 const selectedVoiceId = ref(props.initialVoiceId)
+
+// ── 试听相关状态 ──
+const previewAudio = ref(null)
+const previewingVoiceId = ref(null)
+const previewingVoiceName = ref('')
+const previewProgress = ref(0)
+const previewLoading = reactive({})
+let progressTimer = null
+
+/** 试听示范文本（用于无 previewUrl 时实时合成） */
+const PREVIEW_TEXT = '大家好，这是我的声音，希望你会喜欢。'
 
 const fetchLibrary = async () => {
     loading.value = true
@@ -124,24 +173,112 @@ watch(() => props.visible, (val) => {
     if (val) {
         selectedVoiceId.value = props.initialVoiceId
         fetchLibrary()
+    } else {
+        // 关闭弹窗时停止试听
+        stopPreview()
     }
 })
 
 const filteredVoices = computed(() => {
-    if (activeCategory.value === '全部') return voices.value
+    if (activeCategory.value === '全部') { return voices.value }
     return voices.value.filter(v => v.category === activeCategory.value)
 })
 
-const previewVoice = (voice) => {
-    // TODO: 接入音色试听功能（播放 previewUrl）
-    toastStore.show(`试听功能即将开放: ${voice.name}`)
+/**
+ * 试听音色
+ * 优先使用 previewUrl（预录制音频），无 previewUrl 时调用 TTS 实时合成
+ */
+const previewVoice = async (voice) => {
+    // 如果正在试听同一个，切换暂停
+    if (previewingVoiceId.value === voice.voiceId) {
+        stopPreview()
+        return
+    }
+
+    // 停止之前正在播放的
+    stopPreview()
+
+    // 有 previewUrl 直接播放
+    if (voice.previewUrl) {
+        playPreviewAudio(voice.voiceId, voice.name, voice.previewUrl)
+        return
+    }
+
+    // 无 previewUrl → 调用 TTS 实时合成
+    previewLoading[voice.voiceId] = true
+    try {
+        const res = await ttsApi.synthesize({
+            text: PREVIEW_TEXT,
+            voiceId: voice.voiceId
+        })
+        if (res && res.audioUrl) {
+            playPreviewAudio(voice.voiceId, voice.name, res.audioUrl)
+        } else {
+            toastStore.show('试听合成失败，请重试')
+        }
+    } catch (e) {
+        console.warn('[VoiceSelector] 试听合成失败:', e)
+        toastStore.show('试听合成失败: ' + (e.message || '未知错误'))
+    } finally {
+        previewLoading[voice.voiceId] = false
+    }
+}
+
+/**
+ * 播放试听音频
+ */
+const playPreviewAudio = (voiceId, name, url) => {
+    previewAudio.value = new Audio(url)
+    previewingVoiceId.value = voiceId
+    previewingVoiceName.value = name
+    previewProgress.value = 0
+
+    previewAudio.value.addEventListener('ended', () => {
+        stopPreview()
+    })
+
+    previewAudio.value.addEventListener('error', () => {
+        toastStore.show('试听播放失败')
+        stopPreview()
+    })
+
+    previewAudio.value.play().catch(() => {
+        toastStore.show('播放失败，请重试')
+        stopPreview()
+    })
+
+    // 更新进度条
+    progressTimer = setInterval(() => {
+        if (previewAudio.value && previewAudio.value.duration > 0) {
+            previewProgress.value = Math.min(100,
+                (previewAudio.value.currentTime / previewAudio.value.duration) * 100)
+        }
+    }, 100)
+}
+
+/**
+ * 停止试听
+ */
+const stopPreview = () => {
+    if (previewAudio.value) {
+        previewAudio.value.pause()
+        previewAudio.value.src = ''
+        previewAudio.value = null
+    }
+    previewingVoiceId.value = null
+    previewingVoiceName.value = ''
+    previewProgress.value = 0
+    if (progressTimer) {
+        clearInterval(progressTimer)
+        progressTimer = null
+    }
 }
 
 // 鉴权判断函数（对应后端校验）
 const hasAccess = (voice) => {
-    if (voice.price == 0) return true
-    if (ownedVoiceIds.value.includes(voice.voiceId)) return true
-    if (voice.isVipFree === 1 && authStore.isVip) return true
+    if (voice.price == 0) { return true }
+    if (ownedVoiceIds.value.includes(voice.voiceId)) { return true }
+    if (voice.isVipFree === 1 && authStore.isVip) { return true }
     return false
 }
 
@@ -160,6 +297,7 @@ const handleSelect = (voice) => {
 }
 
 const close = () => {
+    stopPreview()
     emit('update:visible', false)
 }
 
@@ -177,14 +315,22 @@ const tryPurchase = async (voice) => {
                 // 刷新拥有的资产列表
                 fetchLibrary()
             }
-        } catch(e) {
+        } catch (e) {
             toastStore.show('交易打桩失败：' + (e.response?.data?.message || e.message))
         }
     }
 }
+
+// 组件卸载时清理
+onBeforeUnmount(() => {
+    stopPreview()
+})
 </script>
 
 <style scoped>
 .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .slide-up-enter-from, .slide-up-leave-to { transform: translateY(100%); opacity: 0; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
+
