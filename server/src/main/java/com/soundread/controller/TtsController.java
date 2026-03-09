@@ -130,6 +130,15 @@ public class TtsController {
             return Result.fail("该音色需要升级才能试听，请前往创作页使用");
         }
 
+        // ✅ 数据库缓存命中：直接返回已有 URL，不重复合成
+        String cachedUrl = voiceService.getPreviewUrl(voiceId);
+        if (cachedUrl != null && !cachedUrl.isBlank()) {
+            TtsDto.SynthesizeResponse resp = new TtsDto.SynthesizeResponse();
+            resp.setAudioUrl(cachedUrl);
+            resp.setDuration(3);
+            return Result.ok(resp);
+        }
+
         String text = req.getText();
         if (text == null || text.isBlank()) {
             text = "大家好，这是我的声音，希望你会喜欢。";
@@ -141,6 +150,9 @@ public class TtsController {
         try {
             byte[] audioData = tts1Adapter.synthesize(text, voiceId, 1.0f, 1.0f, 1.0f);
             String audioUrl = r2StorageAdapter.uploadAudio(audioData, "preview_" + voiceId + ".mp3");
+
+            // ✅ 合成成功后持久化到数据库，下次直接命中缓存
+            voiceService.savePreviewUrl(voiceId, audioUrl);
 
             TtsDto.SynthesizeResponse resp = new TtsDto.SynthesizeResponse();
             resp.setAudioUrl(audioUrl);

@@ -153,4 +153,21 @@ public class VoiceServiceImpl extends ServiceImpl<SysVoiceMapper, SysVoice> impl
         }
         return "tts-1.0";
     }
+
+    @Override
+    public String getPreviewUrl(String voiceId) {
+        QueryWrapper<SysVoice> wrapper = new QueryWrapper<>();
+        wrapper.eq("voice_id", voiceId).select("preview_url");
+        SysVoice voice = sysVoiceMapper.selectOne(wrapper);
+        return voice != null ? voice.getPreviewUrl() : null;
+    }
+
+    @Override
+    public void savePreviewUrl(String voiceId, String previewUrl) {
+        SysVoice update = new SysVoice();
+        update.setPreviewUrl(previewUrl);
+        QueryWrapper<SysVoice> wrapper = new QueryWrapper<>();
+        wrapper.eq("voice_id", voiceId);
+        sysVoiceMapper.update(update, wrapper);
+    }
 }

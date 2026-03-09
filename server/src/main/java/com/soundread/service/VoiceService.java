@@ -77,4 +77,20 @@ public interface VoiceService extends IService<SysVoice> {
      * @return 引擎标识（tts-1.0 / tts-2.0 / podcast）
      */
     String detectVoiceEngine(String voiceId);
+
+    /**
+     * 查询音色的试听 URL（来自数据库缓存，避免重复合成）
+     *
+     * @param voiceId 音色 ID
+     * @return 已存储的试听 URL，不存在则返回 null
+     */
+    String getPreviewUrl(String voiceId);
+
+    /**
+     * 将合成后的试听 URL 持久化到数据库
+     *
+     * @param voiceId    音色 ID
+     * @param previewUrl 试听音频 URL
+     */
+    void savePreviewUrl(String voiceId, String previewUrl);
 }
