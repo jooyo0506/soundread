@@ -249,7 +249,9 @@ const generateScript = async () => {
     const authHeader = token ? (token.startsWith('Bearer ') ? token : `Bearer ${token}`) : ''
     
     // 使用 fetch 获取流而不是用 axios
-    const res = await fetch('/api/tts/ai-script', {
+    // ⚠️ 必须用绝对路径，相对路径在 Cloudflare Pages 环境下会解析到 www 子域而非后端
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+    const res = await fetch(`${apiBase}/tts/ai-script`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
