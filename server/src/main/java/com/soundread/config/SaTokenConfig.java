@@ -1,5 +1,6 @@
 package com.soundread.config;
 
+import cn.dev33.satoken.context.SaHolder;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
@@ -17,6 +18,11 @@ public class SaTokenConfig implements WebMvcConfigurer {
         @Override
         public void addInterceptors(InterceptorRegistry registry) {
                 registry.addInterceptor(new SaInterceptor(handle -> {
+                        // 跳过 CORS 预检请求（OPTIONS），避免 Sa-Token 拦截导致 CORS 失败
+                        if ("OPTIONS".equalsIgnoreCase(SaHolder.getRequest().getMethod())) {
+                                return;
+                        }
+
                         // 需要登录的接口
                         SaRouter.match("/api/tts/**", "/api/podcast/**", "/api/voice/**",
                                         "/api/vip/**", "/api/studio/**", "/api/creation/**",
