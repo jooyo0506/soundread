@@ -183,7 +183,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { usePlayerStore } from '../stores/player'
 import { useToastStore } from '../stores/toast'
@@ -191,6 +191,7 @@ import { ttsApi } from '../api/tts'
 import VoiceSelector from '../components/VoiceSelector.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
 const toastStore = useToastStore()
@@ -202,7 +203,11 @@ const lastSynthSignature = ref('') // 记录上次成功合成的参数与文本
 const isGenerating = ref(false)
 
 const showVoiceSelector = ref(false)
-const selectedVoice = ref({ voiceId: 'BV001_streaming', name: '通用女声' })
+const selectedVoice = ref(
+  route.query.voiceId
+    ? { voiceId: route.query.voiceId, name: route.query.voiceName || route.query.voiceId }
+    : { voiceId: 'BV001_streaming', name: '通用女声' }
+)
 
 // 语速 / 音量 / 音高 (火山引擎参数)
 const showParams = ref(false)

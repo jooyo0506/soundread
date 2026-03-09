@@ -541,7 +541,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { usePlayerStore } from '../stores/player'
 import VoiceSelector from '../components/VoiceSelector.vue'
@@ -550,6 +550,7 @@ import { creationApi } from '../api/creation'
 import request from '@/api/request'
 
 const router = useRouter()
+const route = useRoute()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
@@ -732,7 +733,11 @@ onMounted(async () => {
 })
 
 const showVoiceSelector = ref(false)
-const selectedVoice = ref({ voiceId: 'zh_female_vv_uranus_bigtts', name: 'vivi 2.0' })
+const selectedVoice = ref(
+  route.query.voiceId
+    ? { voiceId: route.query.voiceId, name: route.query.voiceName || route.query.voiceId }
+    : { voiceId: 'zh_female_vv_uranus_bigtts', name: 'vivi 2.0' }
+)
 
 
 const insertTag = (tag) => {
