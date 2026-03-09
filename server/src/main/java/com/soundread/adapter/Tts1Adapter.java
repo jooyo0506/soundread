@@ -182,7 +182,7 @@ public class Tts1Adapter {
         String resourceId = "volc.tts_async.default";
         String reqid = UUID.randomUUID().toString();
 
-        Map<String, Object> requestBody = new HashMap<>();
+        Map<String, Object> requestBody = new HashMap<>(8);
         requestBody.put("appid", appId);
         requestBody.put("reqid", reqid);
         requestBody.put("text", text);
@@ -220,8 +220,9 @@ public class Tts1Adapter {
 
             // 优先使用响应中的 task_id，如果为 null 则用 reqid 兼容
             String taskId = json.getString("task_id");
-            if (taskId == null)
+            if (taskId == null) {
                 taskId = reqid; // 兜底使用 reqid
+            }
 
             log.info("[TTS1] 异步任务提交成功: taskId={}", taskId);
             return taskId;
@@ -244,7 +245,7 @@ public class Tts1Adapter {
         String queryUrl = "https://openspeech.bytedance.com/api/v1/tts_async/query";
         String resourceId = "volc.tts_async.default";
 
-        Map<String, Object> requestBody = new HashMap<>();
+        Map<String, Object> requestBody = new HashMap<>(4);
         requestBody.put("appid", appId);
         requestBody.put("task_id", taskId);
 

@@ -55,8 +55,9 @@ public class TtsDramaController {
                 // 拼接所有台词文本作为输入摘要
                 StringBuilder sb = new StringBuilder();
                 for (TtsDramaRequest.DialogLine line : request.getLines()) {
-                    if (line.getContent() != null)
+                    if (line.getContent() != null) {
                         sb.append(line.getContent()).append("\n");
+                    }
                 }
                 creation.setInputText(sb.toString().substring(0, Math.min(sb.length(), 500)));
                 creation.setAudioUrl(response.getAudioUrl());

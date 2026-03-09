@@ -156,7 +156,7 @@ public class TtsV2Service {
                 Map<String, Object> taskReqParamsInner = new HashMap<>(reqParamsInner);
                 taskReqParamsInner.put("text", text);
 
-                Map<String, Object> taskReq = new HashMap<>();
+                Map<String, Object> taskReq = new HashMap<>(4);
                 taskReq.put("user", req.get("user"));
                 taskReq.put("namespace", req.get("namespace"));
                 taskReq.put("req_params", taskReqParamsInner);

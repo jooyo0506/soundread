@@ -93,7 +93,7 @@ export function useWebSocket(endpoint, options = {}) {
                     RECONNECT_MAX_DELAY_MS
                 )
                 reconnectTimer = setTimeout(() => {
-                    console.log(`[WebSocket] 正在尝试第 ${reconnectAttempts} 次重连...`)
+                    console.debug(`[WebSocket] 正在尝试第 ${reconnectAttempts} 次重连...`)
                     connect()
                 }, delay)
             }

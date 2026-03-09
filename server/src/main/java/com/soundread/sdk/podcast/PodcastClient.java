@@ -119,7 +119,7 @@ public class PodcastClient {
                 log.info("Podcast 线程启动, appId={}, endpoint={}", properties.getAppId(), properties.getEndpoint());
 
                 // 构建请求头
-                Map<String, String> headers = new HashMap<>();
+                Map<String, String> headers = new HashMap<>(8);
                 headers.put("X-Api-App-Id", properties.getAppId());
                 headers.put("X-Api-App-Key", "aGjiRDfUWi");
                 headers.put("X-Api-Access-Key", properties.getAccessToken());

@@ -118,7 +118,7 @@ export const usePlayerStore = defineStore('player', {
             this.audio.addEventListener('error', (e) => {
                 console.error('Audio playback error', e)
                 if (this.isStreaming && this._retryCount < MAX_RETRIES) {
-                    console.log(`[Player] 流断开，${RETRY_DELAY / 1000}秒后重试 (${this._retryCount + 1}/${MAX_RETRIES})`)
+                    console.debug(`[Player] 流断开，${RETRY_DELAY / 1000}秒后重试 (${this._retryCount + 1}/${MAX_RETRIES})`)
                     this._retryCount++
                     this._retryTimer = setTimeout(() => {
                         if (this.audio && this.currentTrack?.url) {
@@ -143,11 +143,11 @@ export const usePlayerStore = defineStore('player', {
             // ★ 处理缓冲等待（流式经常发生）
             this.audio.addEventListener('waiting', () => {
                 // 不改 isPlaying 状态，保持 UI 一致
-                console.log('[Player] 缓冲中...')
+                console.debug('[Player] 缓冲中...')
             })
 
             this.audio.addEventListener('canplay', () => {
-                console.log('[Player] 缓冲完成，可播放')
+                console.debug('[Player] 缓冲完成，可播放')
             })
         },
 
