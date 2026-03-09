@@ -376,7 +376,7 @@ const playPreviewAudio = (voiceId, name, url) => {
 const stopPreview = () => {
   if (previewAudio.value) {
     previewAudio.value.pause()
-    previewAudio.value.src = ''
+    // ⚠️ 不要设置 src=''，这会触发 error 事件（code=4），导致「播放失败」误报
     previewAudio.value = null
   }
   previewingVoiceId.value = null
