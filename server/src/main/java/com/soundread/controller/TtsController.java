@@ -109,6 +109,39 @@ public class TtsController {
     }
 
     /**
+     * 音色试听（免费，不扣配额）
+     *
+     * <p>
+     * 仅用于音色库试听场景，固定合成一段短文本。
+     * 不扣费、不检查权限、不保存创作记录。
+     * </p>
+     */
+    @PostMapping("/preview")
+    public Result<TtsDto.SynthesizeResponse> previewVoice(@RequestBody TtsDto.ShortTextRequest req) {
+        String text = req.getText();
+        if (text == null || text.isBlank()) {
+            text = "大家好，这是我的声音，希望你会喜欢。";
+        }
+        // 限制试听文本长度，防止滥用
+        if (text.length() > 50) {
+            text = text.substring(0, 50);
+        }
+
+        try {
+            byte[] audioData = tts1Adapter.synthesize(text, req.getVoiceId(), 1.0f, 1.0f, 1.0f);
+            String audioUrl = r2StorageAdapter.uploadAudio(audioData, "preview_" + req.getVoiceId() + ".mp3");
+
+            TtsDto.SynthesizeResponse resp = new TtsDto.SynthesizeResponse();
+            resp.setAudioUrl(audioUrl);
+            resp.setDuration(Math.max(1, text.length() / 4));
+            return Result.ok(resp);
+        } catch (Exception e) {
+            log.warn("[TTS Preview] 试听合成失败 voiceId={}: {}", req.getVoiceId(), e.getMessage());
+            return Result.fail("试听合成失败，请稍后重试");
+        }
+    }
+
+    /**
      * AI 台本生成（SSE 流式响应）
      */
     @RequireFeature("ai_script")

@@ -40,6 +40,14 @@ export const ttsApi = {
         return request.get(`/tts/long-text/${taskId}`, {
             params: { useEmotion }
         })
+    },
+
+    /**
+     * 音色试听（免费，不扣配额）
+     * @param {Object} data - { text?, voiceId }
+     */
+    preview(data) {
+        return request.post('/tts/preview', data)
     }
 }
 

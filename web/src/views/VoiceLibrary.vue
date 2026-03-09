@@ -4,11 +4,16 @@
     <div class="sticky top-0 z-30 bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/5">
       <div class="max-w-5xl mx-auto px-4 pt-4 pb-3">
         <div class="flex justify-between items-center mb-3">
-          <div>
-            <h1 class="text-lg font-bold flex items-center gap-2">
-              <i class="fas fa-microphone-lines text-[#FF9500]"></i> 音色库
-            </h1>
-            <p class="text-[10px] text-gray-500 mt-0.5">探索 AI 声音，找到你的专属音色</p>
+          <div class="flex items-center gap-3">
+            <button @click="$router.back()" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer shrink-0">
+              <i class="fas fa-arrow-left text-xs"></i>
+            </button>
+            <div>
+              <h1 class="text-lg font-bold flex items-center gap-2">
+                <i class="fas fa-microphone-lines text-[#FF9500]"></i> 音色库
+              </h1>
+              <p class="text-[10px] text-gray-500 mt-0.5">探索 AI 声音，找到你的专属音色</p>
+            </div>
           </div>
           <div class="flex items-center gap-1.5">
             <button v-for="eng in engines" :key="eng.value"
@@ -205,6 +210,9 @@ const fetchLibrary = async () => {
       if (!categories.value.includes(activeCategory.value)) {
         activeCategory.value = '全部'
       }
+
+      // 异步预加载没有 previewUrl 的音色试听
+      setTimeout(() => preloadPreviews(), 500)
     }
   } catch (e) {
     console.warn('[VoiceLibrary] 加载失败:', e)
@@ -247,7 +255,9 @@ const hasAccess = (voice) => {
   return false
 }
 
-// ── 试听逻辑 ──
+// ── 试听逻辑（缓存 + 异步预加载）──
+const previewCache = reactive({}) // voiceId → audioUrl
+
 const previewVoice = async (voice) => {
   if (previewingVoiceId.value === voice.voiceId) {
     stopPreview()
@@ -256,28 +266,61 @@ const previewVoice = async (voice) => {
 
   stopPreview()
 
+  // 优先级 1: previewUrl 直接播放
   if (voice.previewUrl) {
     playPreviewAudio(voice.voiceId, voice.name, voice.previewUrl)
     return
   }
 
-  // 无 previewUrl → TTS 实时合成
+  // 优先级 2: 已有缓存
+  if (previewCache[voice.voiceId]) {
+    playPreviewAudio(voice.voiceId, voice.name, previewCache[voice.voiceId])
+    return
+  }
+
+  // 优先级 3: 调用免费试听 API
   previewLoading[voice.voiceId] = true
   try {
-    const res = await ttsApi.synthesizeShort({
+    const res = await ttsApi.preview({
       text: PREVIEW_TEXT,
       voiceId: voice.voiceId
     })
     if (res && res.audioUrl) {
+      previewCache[voice.voiceId] = res.audioUrl
       playPreviewAudio(voice.voiceId, voice.name, res.audioUrl)
     } else {
       toastStore.show('试听合成失败，请重试')
     }
   } catch (e) {
     console.warn('[VoiceLibrary] 试听合成失败:', e)
-    toastStore.show('试听合成失败')
+    toastStore.show('试听失败: ' + (e.message || '请稍后重试'))
   } finally {
     previewLoading[voice.voiceId] = false
+  }
+}
+
+/**
+ * 后台异步预加载：页面加载后逐个合成无 previewUrl 的音色
+ * 不阻塞 UI，用户可以随时点击试听
+ */
+const preloadPreviews = async () => {
+  const needPreload = voices.value.filter(v => !v.previewUrl && !previewCache[v.voiceId])
+  for (const voice of needPreload) {
+    // 如果用户已离开页面，停止预加载
+    if (!voices.value.length) { break }
+    // 避免重复合成
+    if (previewCache[voice.voiceId]) { continue }
+    try {
+      const res = await ttsApi.preview({
+        text: PREVIEW_TEXT,
+        voiceId: voice.voiceId
+      })
+      if (res && res.audioUrl) {
+        previewCache[voice.voiceId] = res.audioUrl
+      }
+    } catch {
+      // 静默失败，不影响用户体验
+    }
   }
 }
 

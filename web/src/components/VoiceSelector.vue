@@ -204,10 +204,10 @@ const previewVoice = async (voice) => {
         return
     }
 
-    // 无 previewUrl → 调用 TTS 实时合成
+    // 无 previewUrl → 调用免费试听 API
     previewLoading[voice.voiceId] = true
     try {
-        const res = await ttsApi.synthesizeShort({
+        const res = await ttsApi.preview({
             text: PREVIEW_TEXT,
             voiceId: voice.voiceId
         })
