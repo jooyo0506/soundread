@@ -26,7 +26,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                         // 需要登录的接口
                         SaRouter.match("/api/tts/**", "/api/podcast/**", "/api/voice/**",
                                         "/api/vip/**", "/api/studio/**", "/api/creation/**",
-                                        "/api/novel/**", "/api/discover/works/*/like")
+                                        "/api/novel/**", "/api/music/**", "/api/discover/works/*/like")
                                         .check(r -> StpUtil.checkLogin());
 
                         // 运营后台安全防护，仅超级管理员可用

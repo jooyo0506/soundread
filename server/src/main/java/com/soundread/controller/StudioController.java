@@ -1,6 +1,7 @@
 package com.soundread.controller;
 
 import com.soundread.common.Result;
+import com.soundread.common.RequireFeature;
 import com.soundread.model.entity.CreativeTemplate;
 import com.soundread.model.entity.StudioProject;
 import com.soundread.model.entity.StudioSection;
@@ -148,6 +149,7 @@ public class StudioController {
     /**
      * AI 创作生成 — 流式输出
      */
+    @RequireFeature("ai_script")
     @PostMapping(value = "/projects/{id}/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateContent(@PathVariable Long id, @RequestBody GenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
@@ -171,6 +173,7 @@ public class StudioController {
     /**
      * 广播剧一键生成 — 对话驱动模式（SSE 流式）
      */
+    @RequireFeature("ai_drama")
     @PostMapping(value = "/projects/{id}/drama-generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateDrama(@PathVariable Long id, @RequestBody DramaGenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);

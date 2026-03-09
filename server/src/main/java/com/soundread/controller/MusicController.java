@@ -1,8 +1,12 @@
 package com.soundread.controller;
 
 import com.soundread.common.Result;
+import com.soundread.common.RequireFeature;
 import com.soundread.model.entity.MusicTask;
+import com.soundread.model.entity.User;
+import com.soundread.service.AuthService;
 import com.soundread.service.MusicService;
+import com.soundread.service.QuotaService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -24,13 +28,18 @@ import java.util.Map;
 public class MusicController {
 
     private final MusicService musicService;
+    private final AuthService authService;
+    private final QuotaService quotaService;
 
     /**
      * 提交音乐生成任务
      */
+    @RequireFeature("ai_music")
     @PostMapping("/generate")
     public Result<?> generate(@RequestBody GenerateRequest req) {
         try {
+            User user = authService.getCurrentUser();
+            quotaService.checkAndDeductMusicQuota(user);
             MusicTask task = musicService.submitGenerate(
                     req.getType(), req.getPrompt(), req.getLyrics(), req.getModel());
             return Result.ok(Map.of(

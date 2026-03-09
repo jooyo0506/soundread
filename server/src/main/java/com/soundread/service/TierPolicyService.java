@@ -131,10 +131,10 @@ public class TierPolicyService {
             case "tts_basic" -> flags.isTtsBasic();
             case "tts_emotion_v2" -> flags.isTtsEmotionV2();
             case "ai_podcast" -> flags.isAiPodcast();
-            case "voice_clone" -> flags.isVoiceClone();
+            case "ai_drama" -> flags.isAiDrama();
             case "ai_script" -> flags.isAiScript();
-            case "multi_language" -> flags.isMultiLanguage();
             case "ai_novel" -> flags.isAiNovel();
+            case "ai_music" -> flags.isAiMusic();
             case "auto_publish" -> flags.isAutoPublish();
             default -> false;
         };

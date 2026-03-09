@@ -163,6 +163,7 @@ const quotaConfig = {
   aiScript:   { bgClass: 'bg-gradient-to-br from-[#100a1a] to-[#0f0a18]', glowClass: 'bg-purple-500/20', iconColor: '#a855f7', barColor: 'linear-gradient(90deg, #a855f7, #ec4899)' },
   podcast:    { bgClass: 'bg-gradient-to-br from-[#0a1a0f] to-[#0a180f]', glowClass: 'bg-green-500/20', iconColor: '#22c55e', barColor: 'linear-gradient(90deg, #22c55e, #06b6d4)' },
   novel:      { bgClass: 'bg-gradient-to-br from-[#0a151a] to-[#0a1218]', glowClass: 'bg-teal-500/20', iconColor: '#14b8a6', barColor: 'linear-gradient(90deg, #14b8a6, #06b6d4)' },
+  music:      { bgClass: 'bg-gradient-to-br from-[#1a1000] to-[#180e00]', glowClass: 'bg-orange-500/20', iconColor: '#f97316', barColor: 'linear-gradient(90deg, #f97316, #fbbf24)' },
 }
 
 const quotaItems = reactive({})
@@ -192,6 +193,7 @@ const loadQuota = async () => {
       quotaItems.aiScript = { label: 'AI 编排', icon: 'magic', used: 0, limit: limits.ai_script_daily_count || 0, unit: '次', ...quotaConfig.aiScript }
       quotaItems.podcast = { label: 'AI 双播', icon: 'podcast', used: 0, limit: limits.podcast_daily_count || 0, unit: '次', ...quotaConfig.podcast }
       quotaItems.novel = { label: '小说合成', icon: 'book-open', used: 0, limit: limits.novel_daily_chars || 0, unit: '字', ...quotaConfig.novel }
+      quotaItems.music = { label: 'AI 音乐', icon: 'music', used: 0, limit: limits.music_daily_count || 0, unit: '次', ...quotaConfig.music }
     }
   } finally {
     loadingQuota.value = false

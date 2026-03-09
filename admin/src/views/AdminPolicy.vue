@@ -167,8 +167,8 @@ const activePolicy = computed(() => {
   return policies.value.find(p => p.id === activePolicyId.value) || policies.value[0]
 })
 
-const featureLabelMap = { tts_basic:'基础合成', tts_emotion_v2:'情感合成', ai_podcast:'智能播客', voice_clone:'声音复刻', ai_script:'智能编排', multi_language:'多语言', ai_novel:'有声小说', auto_publish:'自动发布', voice_tier:'音色库' }
-const quotaLabelMap = { tts_daily_chars:'基础合成日字数', tts_v2_daily_chars:'情感合成日字数', clone_total_count:'克隆限额', ask_daily_count:'日对话数', podcast_daily_count:'日播客数', ai_script_daily_count:'AI编排日次数', storage_max_mb:'存储上限(MB)', max_projects:'作品上限', data_retention_days:'保留天数', novel_daily_chars:'小说合成日字数', novel_max_projects:'小说项目上限' }
+const featureLabelMap = { tts_basic:'基础合成', tts_emotion_v2:'情感合成', ai_podcast:'智能播客', ai_drama:'AI短剧', ai_script:'智能编排', ai_novel:'AI小说创作', ai_music:'AI音乐', auto_publish:'自动发布' }
+const quotaLabelMap = { tts_daily_chars:'基础合成日字数', tts_v2_daily_chars:'情感合成日字数', ask_daily_count:'日对话数', podcast_daily_count:'日播客数', ai_script_daily_count:'AI编排日次数', storage_max_mb:'存储上限(MB)', max_projects:'作品上限', data_retention_days:'保留天数', novel_daily_chars:'AI小说日字数', novel_max_projects:'AI小说项目上限', music_daily_count:'AI音乐日次数' }
 const resourceLabelMap = { llm_provider:'模型供应商', llm_model:'大模型', llm_base_url:'接口地址', task_priority:'优先级', qps_limit:'并发上限', voice_tier:'音色库' }
 
 const featureLabel = (key) => featureLabelMap[key] || key

@@ -100,13 +100,21 @@ public class AuthController {
                                 "limit", limits.getPodcastDailyCount(),
                                 "unit", "次"));
 
-                // 有声小说每日字数
+                // AI 小说创作每日字数
                 result.put("novel", Map.of(
                                 "label", "小说合成",
                                 "icon", "book-open",
                                 "used", quotaService.getDailyUsage(user.getId(), "novel"),
                                 "limit", limits.getNovelDailyChars(),
                                 "unit", "字"));
+
+                // AI 音乐每日生成次数
+                result.put("music", Map.of(
+                                "label", "AI 音乐",
+                                "icon", "music",
+                                "used", quotaService.getDailyUsage(user.getId(), "music"),
+                                "limit", limits.getMusicDailyCount(),
+                                "unit", "次"));
 
                 // 等级信息
                 result.put("tier", Map.of(

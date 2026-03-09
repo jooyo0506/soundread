@@ -30,25 +30,25 @@ public class TierPolicyDto {
         @JsonProperty("ai_podcast")
         private boolean aiPodcast = false;
 
-        /** 声音复刻 */
-        @JsonProperty("voice_clone")
-        private boolean voiceClone = false;
+        /** AI 短剧 (多角色广播剧，配音消耗高) */
+        @JsonProperty("ai_drama")
+        private boolean aiDrama = false;
 
         /** AI 编排 (创作台 AI 写稿) */
         @JsonProperty("ai_script")
         private boolean aiScript = false;
 
-        /** 多语言合成 */
-        @JsonProperty("multi_language")
-        private boolean multiLanguage = false;
-
-        /** AI 有声小说 */
+        /** AI 小说创作 */
         @JsonProperty("ai_novel")
         private boolean aiNovel = false;
 
         /** VIP 发布免审核 */
         @JsonProperty("auto_publish")
         private boolean autoPublish = false;
+
+        /** AI 音乐生成 */
+        @JsonProperty("ai_music")
+        private boolean aiMusic = false;
     }
 
     // ============================
@@ -64,10 +64,6 @@ public class TierPolicyDto {
         /** TTS 2.0 情感合成每日字数上限, -1表示无限 */
         @JsonProperty("tts_v2_daily_chars")
         private int ttsV2DailyChars = 0;
-
-        /** 声音克隆总次数上限 */
-        @JsonProperty("clone_total_count")
-        private int cloneTotalCount = 0;
 
         /** AI 对话每日次数 */
         @JsonProperty("ask_daily_count")
@@ -93,13 +89,17 @@ public class TierPolicyDto {
         @JsonProperty("data_retention_days")
         private int dataRetentionDays = 7;
 
-        /** 有声小说每日处理字数上限`(-1无限) */
+        /** AI 小说创作每日处理字数上限`(-1无限) */
         @JsonProperty("novel_daily_chars")
         private int novelDailyChars = 0;
 
-        /** 有声小说项目数量上限 */
+        /** AI 小说创作项目数量上限 */
         @JsonProperty("novel_max_projects")
         private int novelMaxProjects = 0;
+
+        /** AI 音乐每日生成次数, -1无限 */
+        @JsonProperty("music_daily_count")
+        private int musicDailyCount = 0;
     }
 
     // ============================

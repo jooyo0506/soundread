@@ -125,21 +125,19 @@ public class QuotaService {
     }
 
     /**
-     * 检查并扣减声音克隆总次数配额（累计型，非每日重置）
+     * 检查并扣减 AI 音乐每日生成配额
      */
-    public void checkAndDeductCloneQuota(User user) {
-        int limit = getQuotaLimit(user, "cloneTotalCount");
+    public void checkAndDeductMusicQuota(User user) {
+        int limit = getQuotaLimit(user, "musicDailyCount");
         if (limit == -1) {
             return; // 无限额
         }
 
-        // 克隆是累计型，不按日重置
-        String key = "quota:" + user.getId() + ":clone_total";
-        Long result = redisTemplate.opsForValue().increment(key, 1);
-        long used = result != null ? result : 0;
+        String key = quotaKey(user.getId(), "music");
+        long used = increment(key, 1);
         if (used > limit) {
             throw new QuotaExceededException(
-                    String.format("您的等级克隆次数 (%d 次) 已用完，请升级解锁更多 🎤", limit));
+                    String.format("您的等级每日 AI 音乐配额 (%d 次) 已用完，请明天再来 🎵", limit));
         }
     }
 
@@ -158,7 +156,7 @@ public class QuotaService {
             case "aiScriptDailyCount" -> policy.getQuotaLimits().getAiScriptDailyCount();
             case "podcastDailyCount" -> policy.getQuotaLimits().getPodcastDailyCount();
             case "novelDailyChars" -> policy.getQuotaLimits().getNovelDailyChars();
-            case "cloneTotalCount" -> policy.getQuotaLimits().getCloneTotalCount();
+            case "musicDailyCount" -> policy.getQuotaLimits().getMusicDailyCount();
             default -> 0;
         };
     }
