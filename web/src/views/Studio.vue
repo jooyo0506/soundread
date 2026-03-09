@@ -92,7 +92,26 @@
               
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-1.5 mb-0.5">
-                  <span class="text-sm font-bold text-white truncate group-hover:text-[#FF9500] transition-colors">{{ p.title }}</span>
+                  <!-- 编辑模式 -->
+                  <input v-if="editingProjectId === p.id"
+                         ref="titleInputRef"
+                         v-model="editingTitle"
+                         @blur="saveTitle(p)"
+                         @keyup.enter="saveTitle(p)"
+                         @keyup.escape="cancelEdit"
+                         @click.stop
+                         class="text-sm font-bold text-white bg-white/10 border border-[#FF9500]/50 rounded-lg px-2 py-0.5 outline-none w-full max-w-[200px] focus:shadow-[0_0_8px_rgba(255,149,0,0.2)]" />
+                  <!-- 展示模式 -->
+                  <span v-else
+                        @dblclick.stop="startEdit(p)"
+                        class="text-sm font-bold text-white truncate group-hover:text-[#FF9500] transition-colors cursor-text"
+                        title="双击修改标题">{{ p.title }}</span>
+                  <button v-if="editingProjectId !== p.id"
+                          @click.stop="startEdit(p)"
+                          class="shrink-0 w-5 h-5 rounded flex items-center justify-center text-gray-600 hover:text-[#FF9500] hover:bg-[#FF9500]/10 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                          title="修改标题">
+                    <i class="fas fa-pen text-[8px]"></i>
+                  </button>
                   <span v-if="p.status === 'completed'" class="shrink-0 text-[8px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-400 font-bold">✅ 已完结</span>
                 </div>
                 <div class="flex items-center gap-2 text-[10px] text-gray-500">
@@ -326,7 +345,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { studioApi } from '../api/studio'
 import { useToastStore } from '../stores/toast'
@@ -345,6 +364,42 @@ const activeFilter = ref('all')
 const showDeleteConfirm = ref(false)
 const deleteTarget = ref(null)
 const deleting = ref(false)
+
+// ── 标题内联编辑 ──
+const editingProjectId = ref(null)
+const editingTitle = ref('')
+const titleInputRef = ref(null)
+
+const startEdit = async (project) => {
+    editingProjectId.value = project.id
+    editingTitle.value = project.title
+    await nextTick()
+    // ref 在 v-for 中是数组
+    const input = Array.isArray(titleInputRef.value) ? titleInputRef.value[0] : titleInputRef.value
+    input?.focus()
+    input?.select()
+}
+
+const saveTitle = async (project) => {
+    const newTitle = editingTitle.value.trim()
+    if (!newTitle || newTitle === project.title) {
+        cancelEdit()
+        return
+    }
+    try {
+        await studioApi.updateProject(project.id, { title: newTitle })
+        project.title = newTitle
+        toastStore.show('标题已更新 ✏️')
+    } catch (e) {
+        toastStore.show('标题更新失败: ' + (e.message || '未知错误'))
+    }
+    cancelEdit()
+}
+
+const cancelEdit = () => {
+    editingProjectId.value = null
+    editingTitle.value = ''
+}
 
 const creatingMessages = [
   '正在解析你的灵感设定...',

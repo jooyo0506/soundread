@@ -61,7 +61,7 @@ export function useWebSocket(endpoint, options = {}) {
 
         const token = authStore.token ? authStore.token.replace('Bearer ', '') : ''
         const sep = wsUrl.includes('?') ? '&' : '?'
-        const urlWithAuth = `${wsUrl}${sep}token=${token}`
+        const urlWithAuth = `${wsUrl}${sep}satoken=${token}`
 
         ws.value = new WebSocket(urlWithAuth)
 

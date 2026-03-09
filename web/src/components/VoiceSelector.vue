@@ -207,7 +207,7 @@ const previewVoice = async (voice) => {
     // 无 previewUrl → 调用 TTS 实时合成
     previewLoading[voice.voiceId] = true
     try {
-        const res = await ttsApi.synthesize({
+        const res = await ttsApi.synthesizeShort({
             text: PREVIEW_TEXT,
             voiceId: voice.voiceId
         })
