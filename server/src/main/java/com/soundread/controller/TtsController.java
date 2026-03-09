@@ -1,6 +1,5 @@
 package com.soundread.controller;
 
-import com.soundread.common.RequireFeature;
 import com.soundread.common.Result;
 import com.soundread.model.dto.TtsDto;
 import com.soundread.model.entity.User;
@@ -13,8 +12,8 @@ import com.soundread.service.AuthService;
 import com.soundread.service.CreationService;
 import com.soundread.service.QuotaService;
 import com.soundread.service.StorageQuotaService;
+import com.soundread.service.TierPolicyService;
 import com.soundread.service.VoiceService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +48,7 @@ public class TtsController {
 
     private final AuthService authService;
     private final QuotaService quotaService;
+    private final TierPolicyService tierPolicyService;
     private final AiScriptService aiScriptService;
     private final VoiceService voiceService;
     private final Tts1Adapter tts1Adapter;
@@ -166,14 +166,27 @@ public class TtsController {
 
     /**
      * AI 台本生成（SSE 流式响应）
+     * <p>
+     * ⚠️ 不使用 @RequireFeature AOP：AOP 在 SSE 端点上抛出异常时，
+     * Spring MVC 内容类型协商失败会直接返回 405，改为在方法内部检查。
+     * </p>
      */
-    @RequireFeature("ai_script")
     @PostMapping(value = "/ai-script", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateAiScript(@Valid @RequestBody TtsDto.AiScriptRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         try {
             User user = authService.getCurrentUser();
+
+            // 功能权限校验（内联检查，避免 AOP + SSE 的 405 冲突）
+            String tierCode = user.getTierCode();
+            boolean hasAccess = tierPolicyService.hasFeature(tierCode, "ai_script");
+            if (!hasAccess) {
+                log.info("[AI 编排] 功能未开通: userId={}, tierCode={}", user.getId(), tierCode);
+                emitter.send(SseEmitter.event().data("[FEATURE_LOCKED] 当前权限不足，请升级会员解锁 AI 编排功能"));
+                emitter.complete();
+                return emitter;
+            }
 
             // 检查并扣除 AI 台本额度
             quotaService.checkAndDeductAiScriptQuota(user);
