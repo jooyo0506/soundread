@@ -4,6 +4,48 @@
 
 ---
 
+## [2026-03-09 Round 4] — 小说发布/下架修复 + 代码规范清理
+
+### 📋 背景
+小说「完结发布」后发现页不显示、发布后无下架入口、旧数据下架报错、发布 INSERT 报错、小说合成不计费等一连串关联 Bug。同时清理剩余的 HashMap 容量、if 花括号、console.log 等代码规范问题。
+
+---
+
+### 🐛 Bug 修复
+
+| Commit | 问题 | 根因 | 修复 |
+|--------|------|------|------|
+| `d0ed21f` | 小说发布后发现页 0 条 | `publishNovel()` 只改 status，没写 work 表 | 改为复用 `publishProject()` |
+| `19c2874` | 广播剧/单次生成类型发布后无下架入口 | `v-else` 只显示文字 | 补充红色「下架」按钮 |
+| `f68f885` | 小说独立模板缺下架按钮 | 小说有独立 UI 模板 | 同上 |
+| `09bfa57` | 旧版数据下架报错 | `unpublishProject` 找不到 Work 抛异常 | 无 Work 时直接回退项目状态 |
+| `cf11752` | 发布 INSERT 报错 | `audio_url` NOT NULL + 小说无音频 | null → `""` 兜底 |
+| `cf11752` | 小说合成不计费 | `StudioService` 未注入 QuotaService | 注入依赖 + onComplete 扣减配额 |
+
+---
+
+### 🔧 代码规范优化 (`7f943fb`)
+
+**后端：**
+- HashMap 指定初始容量：`PodcastClient`(8), `TtsV2Service`(4), `Tts1Adapter`(8/4)
+- if 单行体补花括号：`Tts1Adapter`, `TtsDramaController`（阿里【强制】规则）
+
+**前端：**
+- `console.log` → `console.debug`：`player.js`(3处), `useWebSocket.js`(1处)
+
+---
+
+### ⚠️ 剩余（功能性 TODO，非规范问题）
+
+| 优先级 | 位置 | 说明 |
+|--------|------|------|
+| 🟡 中 | `VipService.java` | 真实支付对接（mock 已确认）|
+| 🟡 中 | `AuthService.java` | 真实短信对接（mock 已确认）|
+| 🟢 低 | `VoiceSelector.vue` | 音色试听播放 |
+| 🟢 低 | `AiInteractionService` | 边听边问 ASR→LLM→TTS 完整链路 |
+
+---
+
 ## [2026-03-09 Round 3] — WebSocket 安全鉴权
 
 ### 📋 背景
