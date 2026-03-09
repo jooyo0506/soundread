@@ -343,6 +343,8 @@ const playPreviewAudio = (voiceId, name, url) => {
   previewAudio.value.addEventListener('error', (e) => {
     // MEDIA_ERR_SRC_NOT_SUPPORTED(4) 或 MEDIA_ERR_NETWORK(2) 才是真正的错误
     const code = e.target?.error?.code
+    // 如果音频已经开始播放（currentTime > 0），忽略误触发的 error 事件
+    if (previewAudio.value && previewAudio.value.currentTime > 0) return
     if (code && code !== 1) { // code=1 是 MEDIA_ERR_ABORTED（用户主动停止），不提示
       toastStore.show('试听播放失败，请重试')
       stopPreview()
@@ -401,9 +403,15 @@ const useVoice = (voice) => {
     toastStore.show('请先登录后再使用音色 ✨')
     return router.push('/login')
   }
-  // 带 voiceId 参数跳转到创作页
-  toastStore.show(`已选择「${voice.name}」，即将进入创作 ✨`)
-  router.push({ path: '/create', query: { voiceId: voice.voiceId, voiceName: voice.name } })
+  const query = { voiceId: voice.voiceId, voiceName: voice.name }
+  // TTS 1.0 → 文字配音页；TTS 2.0 → 情感调音台
+  if (activeEngine.value === 'tts-2.0') {
+    toastStore.show(`已选择「${voice.name}」，即将进入情感调音台 🎤`)
+    router.push({ path: '/emotion', query })
+  } else {
+    toastStore.show(`已选择「${voice.name}」，即将进入文字配音 ✨`)
+    router.push({ path: '/create', query })
+  }
 }
 
 // ── 初始化 ──
