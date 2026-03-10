@@ -27,7 +27,7 @@ const route = useRoute()
 
 // 仅在四个主页签中显示底部 TabBar
 const showTabBar = computed(() => {
-  const mainTabs = ['Home', 'Discover', 'Studio', 'Profile']
+  const mainTabs = ['Home', 'Discover', 'Workshop', 'Studio', 'Profile']
   return mainTabs.includes(route.name)
 })
 </script>

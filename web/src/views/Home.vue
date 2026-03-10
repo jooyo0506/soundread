@@ -60,13 +60,20 @@
             </button>
           </div>
 
-          <!-- 底部 — 能力标签 -->
-          <div class="flex items-center gap-3 mt-4 pt-3 border-t border-white/5">
-            <div v-for="cap in capabilities" :key="cap"
-                 class="flex items-center gap-1 text-[9px] text-cyan-400/50">
-              <i class="fas fa-check-circle text-[8px] text-cyan-500/50"></i>
-              {{ cap }}
+          <!-- 底部 — 能力标签 + 音色入口 -->
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
+            <div class="flex items-center gap-3">
+              <div v-for="cap in capabilities" :key="cap"
+                   class="flex items-center gap-1 text-[9px] text-cyan-400/50">
+                <i class="fas fa-check-circle text-[8px] text-cyan-500/50"></i>
+                {{ cap }}
+              </div>
             </div>
+            <button @click="router.push('/voices')"
+                    class="flex items-center gap-1 text-[10px] text-gray-600 hover:text-[#FF9500] transition-colors cursor-pointer shrink-0">
+              <i class="fas fa-microphone-lines text-[9px]"></i> 浏览音色
+              <i class="fas fa-chevron-right text-[8px]"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -307,7 +314,7 @@ onUnmounted(() => { clearInterval(sceneTimer) })
 }
 
 .agent-input {
-  display: flex; align-items: center; gap-2;
+  display: flex; align-items: center;
   padding: 12px 14px; border-radius: 14px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
