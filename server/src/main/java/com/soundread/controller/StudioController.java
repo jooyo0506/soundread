@@ -148,8 +148,16 @@ public class StudioController {
 
     /**
      * AI 创作生成 — 流式输出
+     *
+     * <p>
+     * 权限策略：
+     * <ul>
+     * <li>novel / drama → 由各自 @RequireFeature 注解控制</li>
+     * <li>lecture / radio / ad / picture_book / news → 基础用户可用，不限功能开关</li>
+     * </ul>
+     * 此处不加全局 @RequireFeature，在 StudioService 内部按 typeCode 判断。
+     * </p>
      */
-    @RequireFeature("ai_script")
     @PostMapping(value = "/projects/{id}/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateContent(@PathVariable Long id, @RequestBody GenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);

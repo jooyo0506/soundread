@@ -69,20 +69,3 @@ export const podcastApi = {
         return request.post('/podcast/generate', data)
     }
 }
-/**
- * AI \u5267\u672c\u914d\u97f3 API \u6a21\u5757
- *
- * TTS 2.0 \u591a\u89d2\u8272\u4e32\u884c\u914d\u97f3\uff0c\u652f\u6301 section_id \u5173\u8054\u4e0a\u4e0b\u6587\u60c5\u611f\u3002
- *
- * @module api/tts-drama
- */
-export const dramaApi = {
-    /**
-     * \u591a\u89d2\u8272\u5267\u672c\u5408\u6210
-     * @param {Object} data - { globalContext, lines: [{ speakerVoiceType, content }] }
-     * @returns {Promise<{ audioUrl: string }>}
-     */
-    synthesize(data) {
-        return request.post('/tts/drama/synthesize', data)
-    }
-}

@@ -69,6 +69,7 @@ public class StudioService {
     private final R2StorageAdapter r2StorageAdapter;
     private final CreativeAgentFactory agentFactory;
     private final QuotaService quotaService;
+    private final TierPolicyService tierPolicyService;
 
     // ========================
     // 1. 模板管理
@@ -485,6 +486,15 @@ public class StudioService {
             throw new RuntimeException("项目不存在或无权限");
         }
 
+        // ======== 按 typeCode 精细化功能权限校验（完整保留策略模式）========
+        // 管理员可在后台对每个 tier/用户单独开关对应 feature_flag
+        String typeCode = project.getTypeCode();
+        String requiredFeature = resolveRequiredFeature(typeCode);
+        if (requiredFeature != null && !tierPolicyService.hasFeature(user.getTierCode(), requiredFeature)) {
+            throw new com.soundread.common.exception.BusinessException(
+                    "当前套餐无法使用此功能，请联系管理员或升级套餐");
+        }
+
         CreativeTemplate template = templateMapper.selectById(project.getTemplateId());
         if (template == null) {
             throw new RuntimeException("创作模板不存在");
@@ -834,6 +844,35 @@ public class StudioService {
     }
 
     /**
+     * 根据创作类型（typeCode）返回所需的功能开关名称
+     *
+     * <p>
+     * 映射规则：
+     * <ul>
+     * <li>novel → ai_novel（AI 小说创作，高配额消耗）</li>
+     * <li>lecture / radio / ad / picture_book / news →
+     * ai_script（内容工坊，管理员可按套餐开放）</li>
+     * <li>drama → ai_drama（广播剧专用，由 Controller 层单独拦截）</li>
+     * <li>其他未知类型 → ai_script（保留默认兜底）</li>
+     * </ul>
+     * </p>
+     *
+     * @param typeCode 创作类型编码
+     * @return 对应的 feature flag 名称，null 表示不限制
+     */
+    private String resolveRequiredFeature(String typeCode) {
+        if (typeCode == null)
+            return "ai_script";
+        return switch (typeCode) {
+            case "novel" -> "ai_novel";
+            // drama 由 /drama-generate 接口的 @RequireFeature("ai_drama") 控制，这里不重复校验
+            case "drama" -> null;
+            // 内容工坊类：lecture / radio / ad / picture_book / news
+            default -> "ai_script";
+        };
+    }
+
+    /**
      * 从 userInput 中解析章节索引（0-based）
      *
      * <p>
@@ -843,6 +882,7 @@ public class StudioService {
      * @param userInput 用户输入文本
      * @return 解析到的 0-based 索引，解析失败返回 -1
      */
+
     private int parseChapterIndex(String userInput) {
         // 【阿里规范】if 单行体必须加花括号
         if (userInput == null) {
