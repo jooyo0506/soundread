@@ -126,17 +126,50 @@
         </div>
       </div>
 
-      <!-- Loading indicator with progressive text -->
+      <!-- ★ 管线进度卡 -->
       <div v-if="loading" class="flex gap-2 mb-3">
-        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] shrink-0 animate-pulse mt-0.5">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] shrink-0 mt-0.5 shadow-[0_0_10px_rgba(34,211,238,0.3)]"
+             :class="loadingStageIdx < pipelineStages.length - 1 ? 'animate-pulse' : ''">
           <i class="fas fa-robot"></i>
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
-          <div class="bg-white/[0.04] border border-white/[0.08] rounded-2xl rounded-tl-sm p-3">
-            <div class="flex items-center gap-2 text-[13px] text-gray-400">
-              <i class="fas fa-circle-notch fa-spin text-cyan-400 text-xs"></i>
-              <span>{{ loadingText }}</span>
+          <div class="pipeline-card">
+            <!-- 声波动画 + 标题 -->
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[11px] font-bold text-cyan-300">{{ loadingText }}</span>
+              <div class="pipeline-wave">
+                <span v-for="i in 5" :key="i" :style="`--di:${i}`"></span>
+              </div>
+            </div>
+            <!-- 步骤列表 -->
+            <div class="space-y-1.5">
+              <div v-for="(stage, i) in pipelineStages" :key="i"
+                   class="flex items-center gap-2 text-[10px] transition-all duration-300">
+                <!-- 图标 -->
+                <div class="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
+                     :class="i < loadingStageIdx ? 'bg-green-500/20' : i === loadingStageIdx ? 'bg-cyan-500/20 animate-pulse' : 'bg-white/5'">
+                  <i :class="i < loadingStageIdx
+                    ? 'fas fa-check text-green-400'
+                    : i === loadingStageIdx
+                    ? 'fas fa-circle-notch fa-spin text-cyan-400'
+                    : 'fas fa-circle text-gray-700'"
+                     class="text-[8px]"></i>
+                </div>
+                <!-- 标签 -->
+                <span :class="i < loadingStageIdx ? 'text-green-400' : i === loadingStageIdx ? 'text-cyan-300 font-bold' : 'text-gray-600'">{{ stage.label }}</span>
+                <!-- 完成时间 -->
+                <span v-if="i < loadingStageIdx" class="ml-auto text-gray-600">✓</span>
+                <!-- 进度条（当前阶段）-->
+                <div v-else-if="i === loadingStageIdx" class="ml-auto flex-1 max-w-[60px] h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-cyan-500 to-blue-400 rounded-full pipeline-fill"></div>
+                </div>
+              </div>
+            </div>
+            <!-- 预期时间提示 -->
+            <div class="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between">
+              <span class="text-[9px] text-gray-600">⏱ 通常需要 20–40 秒</span>
+              <span class="text-[9px] text-gray-700">{{ loadingSeconds }}s</span>
             </div>
           </div>
         </div>
@@ -237,6 +270,8 @@ const inputBar = ref(null)
 const activeScene = ref(null)
 const inputBarHeight = ref(56)
 let loadingTimer = null
+const loadingStageIdx = ref(0)  // 当前管线步骤
+const loadingSeconds = ref(0)   // 已等待秒数
 
 // ═══════════════════════════════════════════════════════
 // Welcome message with action buttons
@@ -371,27 +406,42 @@ function goBack() {
 // Progressive loading text
 // ═══════════════════════════════════════════════════════
 
-const LOADING_STAGES = [
-  { text: '正在理解你的需求...', delay: 0 },
-  { text: '正在创作台本...', delay: 5000 },
-  { text: '正在选择最佳音色...', delay: 12000 },
-  { text: '正在合成语音，请稍候...', delay: 20000 },
-  { text: '还在努力中，马上就好...', delay: 40000 }
+// 管线阶段定义
+const pipelineStages = [
+  { label: '理解你的需求',  threshold: 0   },
+  { label: 'AI 创作台本',  threshold: 4   },
+  { label: '情感解析匹配',  threshold: 12  },
+  { label: '开始合成语音',  threshold: 20  },
+  { label: '上传音频文件',  threshold: 38  },
 ]
 
 function startLoadingStages() {
-  loadingTimer = []
-  LOADING_STAGES.forEach(stage => {
-    const timer = setTimeout(() => {
-      if (loading.value) loadingText.value = stage.text
-    }, stage.delay)
-    loadingTimer.push(timer)
-  })
+  loadingStageIdx.value = 0
+  loadingSeconds.value = 0
+  loadingText.value = '正在理解你的需求...'
+
+  loadingTimer = setInterval(() => {
+    if (!loading.value) return
+    loadingSeconds.value++
+
+    // 根据秒数推展阶段
+    const next = pipelineStages.findLastIndex(s => s.threshold <= loadingSeconds.value)
+    if (next > loadingStageIdx.value) {
+      loadingStageIdx.value = next
+      loadingText.value = [
+        '正在理解你的需求...',
+        'AI 正在创作台本...',
+        '情感解析中，匹配最佳音色...',
+        '正在合成语音，请稍候...',
+        '当心收尾，马上就好...',
+      ][next] || loadingText.value
+    }
+  }, 1000)
 }
 
 function stopLoadingStages() {
   if (loadingTimer) {
-    loadingTimer.forEach(t => clearTimeout(t))
+    clearInterval(loadingTimer)
     loadingTimer = null
   }
 }
@@ -743,3 +793,46 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateInputBarHeight)
 })
 </script>
+
+<style scoped>
+/* 管线卡片 */
+.pipeline-card {
+  background: rgba(14, 30, 54, 0.8);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  border-radius: 16px 16px 16px 4px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+}
+
+/* 声波动画 */
+.pipeline-wave {
+  display: flex; align-items: center; gap: 2px; height: 16px;
+}
+.pipeline-wave span {
+  display: block; width: 2px; border-radius: 2px;
+  background: linear-gradient(to top, rgba(34,211,238,0.3), rgba(34,211,238,0.8));
+  animation: pw calc(0.7s + var(--di) * 0.1s) ease-in-out infinite alternate;
+}
+.pipeline-wave span:nth-child(1) { height: 6px; }
+.pipeline-wave span:nth-child(2) { height: 12px; }
+.pipeline-wave span:nth-child(3) { height: 16px; }
+.pipeline-wave span:nth-child(4) { height: 12px; }
+.pipeline-wave span:nth-child(5) { height: 6px; }
+@keyframes pw {
+  from { transform: scaleY(1); opacity: 0.6; }
+  to   { transform: scaleY(0.3); opacity: 1; }
+}
+
+/* 当前步骤进度条 */
+.pipeline-fill {
+  animation: pfill 2.5s ease-in-out infinite;
+}
+@keyframes pfill {
+  0%   { width: 5%; }
+  50%  { width: 85%; }
+  100% { width: 5%; }
+}
+
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+</style>
