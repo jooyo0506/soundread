@@ -4,169 +4,152 @@
     <!-- ── Header ── -->
     <div class="px-5 pt-12 pb-4 flex justify-between items-center">
       <div>
-        <h1 class="text-xl font-black text-white tracking-tight">
-          {{ greeting }}，{{ authStore.user?.nickname || '创作者' }} 👋
-        </h1>
-        <p class="text-[11px] text-gray-500 mt-0.5">AI 语音创作平台</p>
+        <p class="text-[11px] text-gray-500 mb-0.5">{{ greeting }}</p>
+        <h1 class="text-xl font-black text-white tracking-tight">声读</h1>
       </div>
-      <button class="w-9 h-9 rounded-full bg-white/5 border border-white/8 flex justify-center items-center text-gray-400 hover:text-white transition-colors cursor-pointer relative">
+      <button class="w-9 h-9 rounded-full bg-white/5 border border-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer relative">
         <i class="fas fa-bell text-sm"></i>
-        <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#FF9500] rounded-full"></span>
+        <span class="absolute top-2 right-2 w-1.5 h-1.5 bg-[#FF9500] rounded-full"></span>
       </button>
     </div>
 
-    <div class="px-5 space-y-4">
+    <div class="px-5 space-y-5">
 
-      <!-- ── Quick Input Entry ── -->
-      <div @click="router.push('/workshop')"
-           class="quick-entry flex items-center gap-3 px-4 py-3 cursor-pointer">
-        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center shrink-0">
-          <i class="fas fa-microphone text-cyan-400 text-xs"></i>
-        </div>
-        <span class="text-sm text-gray-500 flex-1">帮我录一段深夜电台独白...</span>
-        <div class="flex gap-1.5">
-          <span v-for="scene in quickScenes.slice(0,2)" :key="scene.label"
-                class="text-[9px] px-2 py-0.5 rounded-full bg-white/5 text-gray-600">
-            {{ scene.emoji }} {{ scene.label }}
-          </span>
-        </div>
-      </div>
+      <!-- ══════════════════════════════════
+           HERO：AI 声音制作人（Agent 入口）
+      ══════════════════════════════════ -->
+      <div class="agent-hero rounded-2xl p-5 relative overflow-hidden">
+        <!-- 背景光晕 -->
+        <div class="agent-orb orb-1"></div>
+        <div class="agent-orb orb-2"></div>
 
-      <!-- ── AI 播客 — 主推 Banner ── -->
-      <div @click="router.push('/podcast')"
-           class="podcast-banner relative rounded-2xl overflow-hidden cursor-pointer group">
-        <!-- 背景 -->
-        <div class="banner-bg"></div>
-        <!-- 装饰粒子 -->
-        <div class="banner-dot dot-1"></div>
-        <div class="banner-dot dot-2"></div>
-        <div class="banner-dot dot-3"></div>
-
-        <div class="relative z-10 p-5">
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="hot-badge">🔥 主推</span>
-                <span class="text-[10px] text-emerald-400/80">NEW</span>
-              </div>
-              <h2 class="text-xl font-black text-white leading-tight mb-1.5">AI 播客</h2>
-              <p class="text-[11px] text-white/60 leading-relaxed mb-3">
-                多角色 · 真人对话风格<br/>
-                一键生成专业双播内容
-              </p>
-              <div class="flex items-center gap-3">
-                <div class="start-btn group-hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)] transition-shadow">
-                  <i class="fas fa-podcast text-[11px]"></i>
-                  立即创作
-                </div>
-                <div class="flex items-center gap-1 text-white/40">
-                  <i class="fas fa-headphones text-[9px]"></i>
-                  <span class="text-[10px]">双声道混音</span>
-                </div>
-              </div>
+        <div class="relative z-10">
+          <!-- 标题区 -->
+          <div class="flex items-center gap-2.5 mb-4">
+            <div class="agent-icon">
+              🎙️
+              <span class="agent-pulse"></span>
             </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h2 class="text-base font-black text-white">AI 声音制作人</h2>
+                <span class="agent-badge">Agent</span>
+              </div>
+              <p class="text-[10px] text-cyan-400/80 mt-0.5">理解你的意图 · 自动创作有声内容</p>
+            </div>
+          </div>
 
-            <!-- 右侧声波装饰 -->
-            <div class="podcast-wave-wrap ml-4">
-              <div class="soundwave">
-                <span v-for="i in 8" :key="i" :style="`--i:${i}`"></span>
-              </div>
-              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-2xl shadow-[0_0_24px_rgba(16,185,129,0.4)] mx-auto mt-2">
-                🎙️
-              </div>
+          <!-- 对话式输入框（核心 CTA）-->
+          <div @click="router.push('/workshop')"
+               class="agent-input group cursor-pointer mb-3">
+            <i class="fas fa-comment-dots text-cyan-400/60 text-sm group-hover:text-cyan-400 transition-colors shrink-0"></i>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-400 group-hover:text-gray-300 transition-colors truncate">{{ currentScene }}</p>
+            </div>
+            <div class="send-btn">
+              <i class="fas fa-arrow-right text-[11px]"></i>
+            </div>
+          </div>
+
+          <!-- 场景 Chips -->
+          <div class="flex gap-2 flex-wrap">
+            <button v-for="scene in quickScenes" :key="scene.label"
+                    @click="goWorkshop(scene.text)"
+                    class="scene-chip">
+              {{ scene.emoji }} {{ scene.label }}
+            </button>
+          </div>
+
+          <!-- 底部 — 能力标签 -->
+          <div class="flex items-center gap-3 mt-4 pt-3 border-t border-white/5">
+            <div v-for="cap in capabilities" :key="cap"
+                 class="flex items-center gap-1 text-[9px] text-cyan-400/50">
+              <i class="fas fa-check-circle text-[8px] text-cyan-500/50"></i>
+              {{ cap }}
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ── 核心功能 2×2 Grid ── -->
+      <!-- ══════════════════════════════════
+           功能矩阵：2×2 + 1 行
+      ══════════════════════════════════ -->
       <div>
-        <h3 class="text-xs font-bold text-gray-500 mb-2.5 flex items-center gap-1.5 uppercase tracking-wider">
-          <i class="fas fa-th text-[9px]"></i> 全部功能
-        </h3>
+        <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-2.5">专项工具</p>
         <div class="grid grid-cols-2 gap-2.5">
 
-          <!-- 情感调音台 -->
           <div @click="router.push('/emotion')"
-               class="feature-card feature-card--purple group cursor-pointer relative">
-            <div v-if="!authStore.hasFeature('tts_emotion_v2')" class="vip-badge">VIP</div>
-            <div class="feature-icon bg-gradient-to-br from-purple-500 to-pink-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] transition-shadow">
+               class="feat-card feat-card--purple group relative cursor-pointer">
+            <div v-if="!authStore.hasFeature('tts_emotion_v2')" class="vip-tag">VIP</div>
+            <div class="feat-icon bg-gradient-to-br from-purple-500 to-pink-500">
               <i class="fas fa-masks-theater"></i>
             </div>
-            <h4 class="text-white text-sm font-black mt-2.5 mb-0.5">情感调音台</h4>
-            <p class="text-[10px] text-gray-500">TTS 2.0 · 情感合成</p>
-            <div class="feature-arrow"><i class="fas fa-arrow-right text-[8px]"></i></div>
+            <p class="text-white text-[13px] font-black mt-3 mb-0.5">情感调音台</p>
+            <p class="text-[10px] text-gray-500">TTS 2.0 情感合成</p>
           </div>
 
-          <!-- AI 创作 -->
-          <div @click="router.push('/studio')"
-               class="feature-card feature-card--orange group cursor-pointer">
-            <div class="feature-icon bg-gradient-to-br from-[#FF9500] to-[#FF6B00] group-hover:shadow-[0_0_20px_rgba(255,149,0,0.4)] transition-shadow">
-              <i class="fas fa-pen-fancy"></i>
+          <div @click="router.push('/podcast')"
+               class="feat-card feat-card--emerald group cursor-pointer">
+            <div class="feat-icon bg-gradient-to-br from-emerald-500 to-teal-600">
+              <i class="fas fa-podcast"></i>
             </div>
-            <h4 class="text-white text-sm font-black mt-2.5 mb-0.5">AI 创作</h4>
-            <p class="text-[10px] text-gray-500">写作 + 一键配音</p>
-            <div class="feature-arrow"><i class="fas fa-arrow-right text-[8px]"></i></div>
+            <p class="text-white text-[13px] font-black mt-3 mb-0.5">AI 播客</p>
+            <p class="text-[10px] text-gray-500">多角色双播创作</p>
           </div>
 
-          <!-- AI 音乐 -->
           <div @click="router.push('/music')"
-               class="feature-card feature-card--fuchsia group cursor-pointer">
-            <div class="feature-icon bg-gradient-to-br from-fuchsia-500 to-purple-600 group-hover:shadow-[0_0_20px_rgba(192,80,240,0.4)] transition-shadow">
+               class="feat-card feat-card--fuchsia group cursor-pointer">
+            <div class="feat-icon bg-gradient-to-br from-fuchsia-500 to-purple-600">
               <i class="fas fa-music"></i>
             </div>
-            <h4 class="text-white text-sm font-black mt-2.5 mb-0.5">AI 音乐</h4>
+            <p class="text-white text-[13px] font-black mt-3 mb-0.5">AI 音乐</p>
             <p class="text-[10px] text-gray-500">歌曲 & 纯音乐</p>
-            <div class="feature-arrow"><i class="fas fa-arrow-right text-[8px]"></i></div>
           </div>
 
-          <!-- 文字配音 -->
           <div @click="router.push('/create')"
-               class="feature-card feature-card--cyan group cursor-pointer">
-            <div class="feature-icon bg-gradient-to-br from-cyan-500 to-blue-600 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-shadow">
+               class="feat-card feat-card--orange group cursor-pointer">
+            <div class="feat-icon bg-gradient-to-br from-[#FF9500] to-[#FF6B00]">
               <i class="fas fa-microphone-alt"></i>
             </div>
-            <h4 class="text-white text-sm font-black mt-2.5 mb-0.5">文字配音</h4>
-            <p class="text-[10px] text-gray-500">TTS 1.0 · 极速合成</p>
-            <div class="feature-arrow"><i class="fas fa-arrow-right text-[8px]"></i></div>
+            <p class="text-white text-[13px] font-black mt-3 mb-0.5">文字配音</p>
+            <p class="text-[10px] text-gray-500">TTS 极速合成</p>
           </div>
 
         </div>
       </div>
 
-      <!-- ── 推荐收听 ── -->
+      <!-- ══════════════════════════════════
+           推荐收听
+      ══════════════════════════════════ -->
       <div v-if="featuredWorks.length > 0">
         <div class="flex justify-between items-center mb-2.5">
-          <h3 class="text-xs font-bold text-gray-500 flex items-center gap-1.5 uppercase tracking-wider">
+          <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
             <i class="fas fa-fire text-orange-400 text-[9px]"></i> 推荐收听
-          </h3>
-          <router-link to="/discover" class="text-[10px] text-gray-600 hover:text-[#FF9500] transition-colors flex items-center gap-1">
+          </p>
+          <router-link to="/discover" class="text-[10px] text-gray-600 hover:text-[#FF9500] transition-colors">
             更多 <i class="fas fa-chevron-right text-[8px]"></i>
           </router-link>
         </div>
-
         <div class="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
           <div v-for="work in featuredWorks" :key="work.id"
                @click="playWork(work)"
-               class="flex-shrink-0 w-[140px] group cursor-pointer">
-            <!-- 封面 -->
-            <div class="w-full h-[100px] rounded-xl overflow-hidden relative mb-2"
+               class="flex-shrink-0 w-[138px] cursor-pointer group">
+            <div class="w-full h-[96px] rounded-xl overflow-hidden relative mb-2"
                  :class="getWorkGradient(work.contentType)">
-              <i class="fas text-white/20 text-3xl absolute inset-0 flex items-center justify-center m-auto w-8 h-8"
-                 :class="getWorkIcon(work.contentType)" style="top:50%;left:50%;transform:translate(-50%,-50%)"></i>
-              <div class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <i class="fas text-white/20 text-3xl"
+                 :class="getWorkIcon(work.contentType)"
+                 style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)"></i>
+              <div class="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <div class="w-9 h-9 rounded-full bg-[#FF9500] flex items-center justify-center text-black shadow-lg">
                   <i class="fas fa-play text-[11px] pl-0.5"></i>
                 </div>
               </div>
-              <span v-if="work.audioDuration" class="absolute bottom-1.5 right-1.5 text-[8px] text-white/80 bg-black/50 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+              <span v-if="work.audioDuration" class="absolute bottom-1.5 right-1.5 text-[8px] text-white/80 bg-black/50 px-1.5 py-0.5 rounded-full">
                 {{ formatDuration(work.audioDuration) }}
               </span>
-              <span class="absolute top-1.5 left-1.5 text-[8px] text-white/60 bg-black/40 px-1.5 py-0.5 rounded-full">
-                {{ getContentLabel(work.contentType) }}
-              </span>
             </div>
-            <h4 class="text-[11px] font-bold text-white truncate">{{ work.title }}</h4>
+            <h4 class="text-[11px] font-bold text-white truncate leading-tight">{{ work.title }}</h4>
+            <p class="text-[9px] text-gray-600 mt-0.5">{{ getContentLabel(work.contentType) }}</p>
           </div>
         </div>
       </div>
@@ -185,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toast'
@@ -200,25 +183,34 @@ const playerStore = usePlayerStore()
 
 const greeting = computed(() => {
   const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 12) return '早安'
-  if (h < 18) return '下午好'
-  return '晚上好'
+  if (h < 6) return '夜深了，还在创作？🌙'
+  if (h < 12) return '早安，开启创意的一天 ✨'
+  if (h < 18) return '下午好，有什么想创作？'
+  return '晚上好，来点有声内容吧 🎙️'
 })
 
 const quickScenes = [
-  { emoji: '🌙', label: '深夜电台', text: '帮我录一段深夜电台独白' },
-  { emoji: '💌', label: '情感祝福', text: '帮我录一段生日祝福' },
-  { emoji: '🎬', label: '短视频配音', text: '帮我做一段短视频旁白' },
-  { emoji: '📖', label: '有声故事', text: '帮我创作一个睡前故事' },
+  { emoji: '🌙', label: '深夜电台', text: '帮我录一段深夜情感电台独白' },
+  { emoji: '💌', label: '情感祝福', text: '帮我录一段生日祝福语音卡片' },
+  { emoji: '🎬', label: '短视频配音', text: '帮我做一段短视频励志旁白' },
+  { emoji: '📖', label: '有声故事', text: '帮我创作一个睡前童话故事' },
 ]
+
+// 轮播展示场景提示词
+const sceneIndex = ref(0)
+const currentScene = computed(() => quickScenes[sceneIndex.value].text + '...')
+let sceneTimer = null
+
+const capabilities = ['脚本自动生成', '智能音色匹配', '一键发布上架']
 
 const showVoiceSelector = ref(false)
 const quickVoice = ref({ voiceId: 'zh_female_vv_uranus_bigtts', name: 'vivi 2.0' })
-const onVoiceSelected = (voice) => {
-  quickVoice.value = voice
-  toastStore.show(`已切换音色：${voice.name} 🎙️`)
+
+const goWorkshop = (text) => {
+  sessionStorage.setItem('workshop_init_text', text)
+  router.push('/workshop')
 }
+const onVoiceSelected = (voice) => { quickVoice.value = voice }
 
 const featuredWorks = ref([])
 const loadFeaturedWorks = async () => {
@@ -229,9 +221,7 @@ const loadFeaturedWorks = async () => {
         .filter(w => w.audioUrl && w.audioDuration && w.audioDuration >= 30)
         .slice(0, 6)
     }
-  } catch (e) {
-    console.warn('加载推荐收听失败:', e.message)
-  }
+  } catch { }
 }
 
 const playWork = async (work) => {
@@ -260,147 +250,125 @@ const formatDuration = (seconds) => {
   return m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `0:${String(s).padStart(2, '0')}`
 }
 
-onMounted(() => { loadFeaturedWorks() })
+onMounted(() => {
+  loadFeaturedWorks()
+  sceneTimer = setInterval(() => {
+    sceneIndex.value = (sceneIndex.value + 1) % quickScenes.length
+  }, 3000)
+})
+onUnmounted(() => { clearInterval(sceneTimer) })
 </script>
 
 <style scoped>
 .home-page { background: #080c14; }
 
-/* ── Quick Entry ── */
-.quick-entry {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+/* ── Agent Hero ── */
+.agent-hero {
+  background: linear-gradient(135deg, #0a1628 0%, #0d1f32 50%, #0a1422 100%);
+  border: 1px solid rgba(34,211,238,0.15);
+}
+.agent-hero:hover { border-color: rgba(34,211,238,0.25); }
+
+.agent-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(50px); pointer-events: none;
+}
+.orb-1 { width: 180px; height: 180px; background: rgba(34,211,238,0.08); top: -40px; right: -20px; }
+.orb-2 { width: 120px; height: 120px; background: rgba(59,130,246,0.07); bottom: -20px; left: 10px;
+  animation: orb-pulse 4s ease-in-out infinite; }
+@keyframes orb-pulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.2)} }
+
+.agent-icon {
+  width: 48px; height: 48px;
   border-radius: 14px;
-  transition: border-color 0.2s;
+  background: linear-gradient(135deg, #1a4a6e, #0e3050);
+  border: 1px solid rgba(34,211,238,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 20px rgba(34,211,238,0.15);
+  position: relative; flex-shrink: 0;
 }
-.quick-entry:hover { border-color: rgba(34,211,238,0.25); }
-
-/* ── Podcast Banner ── */
-.podcast-banner {
-  min-height: 160px;
+.agent-pulse {
+  position: absolute; inset: -4px;
+  border-radius: 18px;
+  border: 1px solid rgba(34,211,238,0.2);
+  animation: agent-ring 2.5s ease-in-out infinite;
 }
-.banner-bg {
-  position: absolute; inset: 0;
-  background: linear-gradient(135deg, #0d2d20 0%, #0a1f2e 50%, #0d1a2e 100%);
-  border: 1px solid rgba(16,185,129,0.2);
-  border-radius: 1rem;
+@keyframes agent-ring {
+  0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:0;transform:scale(1.12)}
 }
-.podcast-banner:hover .banner-bg {
-  border-color: rgba(16,185,129,0.4);
-  box-shadow: 0 8px 32px rgba(16,185,129,0.12);
-}
-.banner-dot {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-  pointer-events: none;
-}
-.dot-1 { width: 120px; height: 120px; background: rgba(16,185,129,0.12); top: -20px; right: 20px; }
-.dot-2 { width: 80px; height: 80px; background: rgba(6,182,212,0.08); bottom: -10px; left: 30px; }
-.dot-3 { width: 60px; height: 60px; background: rgba(52,211,153,0.1); top: 40px; right: 60px; animation: pulse-dot 3s ease-in-out infinite; }
-@keyframes pulse-dot { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
-
-.hot-badge {
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  background: linear-gradient(90deg, rgba(255,149,0,0.25), rgba(255,80,50,0.2));
-  color: #fbbf24;
-  border: 1px solid rgba(255,149,0,0.25);
-}
-.start-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  border-radius: 9999px;
-  background: linear-gradient(135deg, #10b981, #0d9488);
-  color: white;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 4px 16px rgba(16,185,129,0.35);
+.agent-badge {
+  font-size: 9px; font-weight: 800;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(34,211,238,0.15);
+  color: #22d3ee;
+  border: 1px solid rgba(34,211,238,0.25);
+  letter-spacing: 0.05em;
 }
 
-/* ── Soundwave animation ── */
-.podcast-wave-wrap { display: flex; flex-direction: column; align-items: center; }
-.soundwave {
-  display: flex; align-items: center; gap: 3px; height: 32px; margin-bottom: 6px;
+.agent-input {
+  display: flex; align-items: center; gap-2;
+  padding: 12px 14px; border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  gap: 10px;
+  transition: all 0.2s;
 }
-.soundwave span {
-  display: block;
-  width: 3px; border-radius: 2px;
-  background: linear-gradient(to top, rgba(16,185,129,0.3), rgba(52,211,153,0.8));
-  animation: sw var(--dur, 1s) ease-in-out infinite;
+.agent-input:hover {
+  border-color: rgba(34,211,238,0.3);
+  background: rgba(34,211,238,0.05);
 }
-.soundwave span:nth-child(1) { height: 10px; --dur: 0.9s; animation-delay: 0s; }
-.soundwave span:nth-child(2) { height: 20px; --dur: 1.1s; animation-delay: 0.1s; }
-.soundwave span:nth-child(3) { height: 28px; --dur: 0.8s; animation-delay: 0.2s; }
-.soundwave span:nth-child(4) { height: 32px; --dur: 1.2s; animation-delay: 0.3s; }
-.soundwave span:nth-child(5) { height: 24px; --dur: 0.95s; animation-delay: 0.4s; }
-.soundwave span:nth-child(6) { height: 28px; --dur: 1.05s; animation-delay: 0.2s; }
-.soundwave span:nth-child(7) { height: 18px; --dur: 0.85s; animation-delay: 0.1s; }
-.soundwave span:nth-child(8) { height: 10px; --dur: 1.0s; animation-delay: 0s; }
-@keyframes sw {
-  0%,100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.35); }
+.send-btn {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  display: flex; align-items: center; justify-content: center;
+  color: white; flex-shrink: 0;
+  box-shadow: 0 2px 10px rgba(14,165,233,0.3);
+}
+
+.scene-chip {
+  font-size: 11px;
+  padding: 5px 12px; border-radius: 9999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
+}
+.scene-chip:hover {
+  border-color: rgba(34,211,238,0.3);
+  color: #22d3ee; background: rgba(34,211,238,0.08);
 }
 
 /* ── Feature Cards ── */
-.feature-card {
+.feat-card {
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 16px;
-  padding: 14px;
-  position: relative;
-  transition: all 0.2s;
-  overflow: hidden;
+  border-radius: 16px; padding: 14px;
+  transition: all 0.2s; position: relative; overflow: hidden;
 }
-.feature-card:hover {
-  transform: translateY(-2px);
-  background: rgba(255,255,255,0.06);
-}
-.feature-card--purple:hover { border-color: rgba(168,85,247,0.3); }
-.feature-card--orange:hover { border-color: rgba(255,149,0,0.3); }
-.feature-card--fuchsia:hover { border-color: rgba(192,80,240,0.3); }
-.feature-card--cyan:hover { border-color: rgba(34,211,238,0.3); }
+.feat-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.06); }
+.feat-card--purple:hover { border-color: rgba(168,85,247,0.3); }
+.feat-card--emerald:hover { border-color: rgba(16,185,129,0.3); }
+.feat-card--fuchsia:hover { border-color: rgba(192,80,240,0.3); }
+.feat-card--orange:hover { border-color: rgba(255,149,0,0.3); }
 
-.feature-icon {
-  width: 44px; height: 44px;
-  border-radius: 12px;
+.feat-icon {
+  width: 44px; height: 44px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  color: white;
-  font-size: 18px;
+  color: white; font-size: 18px;
+  transition: box-shadow 0.2s;
 }
+.group:hover .feat-icon { box-shadow: 0 0 18px rgba(255,255,255,0.15); }
 
-.feature-arrow {
-  position: absolute;
-  top: 12px; right: 12px;
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.06);
-  display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,0.3);
-  transition: all 0.2s;
-}
-.group:hover .feature-arrow {
-  background: rgba(255,255,255,0.12);
-  color: white;
-  transform: translateX(2px);
-}
-
-.vip-badge {
-  position: absolute;
-  top: 10px; right: 10px;
-  font-size: 8px;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-  color: black;
+.vip-tag {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 8px; font-weight: 800;
+  padding: 2px 6px; border-radius: 4px;
+  background: linear-gradient(90deg,#f59e0b,#fbbf24); color: black;
 }
 
 /* scrollbar */
-.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+.hide-scrollbar::-webkit-scrollbar { display:none; }
 </style>
