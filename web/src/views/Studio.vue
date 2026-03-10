@@ -19,9 +19,23 @@
         </button>
       </div>
 
-      <div v-if="loading" class="text-center py-20 text-gray-500">
-        <i class="fas fa-circle-notch fa-spin text-2xl mb-3"></i>
-        <p>加载中...</p>
+      <!-- 项目加载骨溶屏 -->
+      <div v-if="loadingProjects && projects.length === 0">
+        <div class="mb-5 grid grid-cols-4 gap-2">
+          <div v-for="i in 8" :key="i" class="rounded-xl p-2.5 border border-white/5 bg-white/[0.03] animate-pulse">
+            <div class="w-7 h-7 rounded-full bg-white/8 mx-auto mb-1.5"></div>
+            <div class="h-2.5 rounded-full bg-white/8 w-3/4 mx-auto"></div>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div v-for="i in 3" :key="i" class="rounded-xl px-4 py-3 border border-white/5 bg-[#141416] animate-pulse flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-white/8 shrink-0"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-3 rounded-full bg-white/8 w-1/2"></div>
+              <div class="h-2 rounded-full bg-white/8 w-3/4"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-else>
@@ -44,6 +58,8 @@
             <h2 class="text-xs font-bold text-gray-400 flex items-center gap-1.5">
               <i class="fas fa-folder-open text-[#FF9500]"></i> 我的项目
               <span v-if="projects.length" class="text-gray-600">({{ projects.length }})</span>
+              <!-- 独立的小 loading 指示 -->
+              <i v-if="loadingProjects" class="fas fa-circle-notch fa-spin text-[10px] text-gray-600 ml-1"></i>
             </h2>
             <div class="flex items-center gap-1.5">
               <button v-for="tab in filterTabs" :key="tab.key"
@@ -352,7 +368,8 @@ import { useToastStore } from '../stores/toast'
 
 const router = useRouter()
 const toastStore = useToastStore()
-const loading = ref(true)
+const loading = ref(false)         // 模板首次加载（已弃用，保留兼容）
+const loadingProjects = ref(true)  // 项目列表独立加载标志
 const templates = ref([])
 const projects = ref([])
 const showTypePicker = ref(false)
@@ -716,8 +733,31 @@ const getModuleTags = (typeCode) => {
   return map[typeCode] || []
 }
 
+// 模板缓存：localStorage TTL 1小时，静态数据不需要每次请求接口
+const TEMPLATE_CACHE_KEY = 'sr_studio_templates'
+const TEMPLATE_CACHE_TTL = 3600_000 // 1h ms
+
 const loadTemplates = async () => {
-  try { templates.value = await studioApi.getTemplates() } catch (e) { toastStore.show('加载创作类型失败') }
+  // 先读缓存
+  try {
+    const cached = localStorage.getItem(TEMPLATE_CACHE_KEY)
+    if (cached) {
+      const { ts, data } = JSON.parse(cached)
+      if (Date.now() - ts < TEMPLATE_CACHE_TTL) {
+        templates.value = data
+        return // 命中缓存，直接返回
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // 缓存未命中，请求接口
+  try {
+    const data = await studioApi.getTemplates()
+    templates.value = data
+    localStorage.setItem(TEMPLATE_CACHE_KEY, JSON.stringify({ ts: Date.now(), data }))
+  } catch (e) {
+    toastStore.show('加载创作类型失败')
+  }
 }
 
 
@@ -903,9 +943,12 @@ const formatTime = (t) => {
 }
 
 onMounted(async () => {
-  loading.value = true
-  await Promise.all([loadTemplates(), loadProjects()])
-  loading.value = false
+  // 模板优先从缓存加载（同步，命中则无网络请求）
+  await loadTemplates()
+
+  // 项目列表独立异步加载，不阻塞模板展示
+  loadingProjects.value = true
+  loadProjects().finally(() => { loadingProjects.value = false })
 })
 
 onUnmounted(() => {
