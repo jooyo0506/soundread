@@ -4,10 +4,12 @@ import com.soundread.config.ai.LlmRouter;
 import com.soundread.controller.ttsv2.TtsV2Request;
 import com.soundread.controller.ttsv2.TtsV2Response;
 import com.soundread.controller.ttsv2.TtsV2Service;
+import com.soundread.common.exception.QuotaExceededException;
 import com.soundread.model.entity.SysVoice;
 import com.soundread.model.entity.UserCreation;
 import com.soundread.model.entity.User;
 import com.soundread.service.CreationService;
+import com.soundread.service.QuotaService;
 import com.soundread.service.VoiceService;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,7 @@ public class SoundReadTools {
     private final VoiceService voiceService;
     private final CreationService creationService;
     private final TtsV2Service ttsV2Service;
+    private final QuotaService quotaService;
 
     /**
      * 存放当前调用会话的用户，供 Tool 方法读取当前操作者
@@ -146,6 +149,14 @@ public class SoundReadTools {
         log.info("synthesizeSpeech called length={} voice={}", text.length(), voiceId);
         try {
             User user = getUser();
+
+            // ★ 配额检查 — TTS 2.0 每日字数
+            try {
+                quotaService.checkAndDeductTextV2Quota(user, text.length());
+            } catch (QuotaExceededException e) {
+                log.warn("[SoundReadTools] 配额超限: userId={}, chars={}", user.getId(), text.length());
+                return "⚠️ " + e.getMessage() + "\n（合成取消，此次不消耗您的额度）";
+            }
 
             TtsV2Request request = new TtsV2Request();
             request.setText(text);
