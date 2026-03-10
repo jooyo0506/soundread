@@ -168,7 +168,7 @@
             </div>
             <!-- 预期时间提示 -->
             <div class="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between">
-              <span class="text-[9px] text-gray-600">⏱ 通常需要 20–40 秒</span>
+              <span class="text-[9px] text-gray-600">⏱ {{ pipelineTip }}</span>
               <span class="text-[9px] text-gray-700">{{ loadingSeconds }}s</span>
             </div>
           </div>
@@ -406,35 +406,83 @@ function goBack() {
 // Progressive loading text
 // ═══════════════════════════════════════════════════════
 
-// 管线阶段定义
-const pipelineStages = [
-  { label: '理解你的需求',  threshold: 0   },
-  { label: 'AI 创作台本',  threshold: 4   },
-  { label: '情感解析匹配',  threshold: 12  },
-  { label: '开始合成语音',  threshold: 20  },
-  { label: '上传音频文件',  threshold: 38  },
-]
+// 意图感知管线 — 根据用户消息类型动态切换阶段
 
-function startLoadingStages() {
+function detectIntent(text) {
+  const t = text
+  if (/查看|查询|列表|有哪些|我的|作品|多少|历史|音色/.test(t)) return 'query'
+  if (/情感|分析|语气|感觉/.test(t)) return 'emotion'
+  if (/合成|录音|录制|台本|配音|帮我读|帮我写|生成/.test(t) || text.length > 30) return 'synth'
+  return 'general'
+}
+
+const PIPELINE_MAP = {
+  query: {
+    stages: [
+      { label: '理解你的需求', threshold: 0 },
+      { label: '查询数据库',   threshold: 2 },
+      { label: '整理结果',     threshold: 5 },
+    ],
+    texts: ['正在理解你的需求...', '正在查询相关数据...', '整理结果中，马上好...'],
+    tip: '通常需要 2–5 秒',
+  },
+  emotion: {
+    stages: [
+      { label: '理解你的需求', threshold: 0 },
+      { label: 'AI 情感分析', threshold: 3 },
+      { label: '生成分析报告', threshold: 8 },
+    ],
+    texts: ['正在理解你的需求...', 'AI 正在分析情感方向...', '生成分析报告中...'],
+    tip: '通常需要 5–12 秒',
+  },
+  synth: {
+    stages: [
+      { label: '理解你的需求', threshold: 0  },
+      { label: 'AI 创作台本', threshold: 4  },
+      { label: '情感解析匹配', threshold: 12 },
+      { label: '合成语音中',   threshold: 20 },
+      { label: '上传音频文件', threshold: 38 },
+    ],
+    texts: [
+      '正在理解你的需求...',
+      'AI 正在创作台本...',
+      '情感解析，匹配最佳音色...',
+      '正在合成语音，请稍候...',
+      '收尾处理，马上就好...',
+    ],
+    tip: '通常需要 20–40 秒',
+  },
+  general: {
+    stages: [
+      { label: '理解你的需求', threshold: 0 },
+      { label: 'AI 处理中',   threshold: 5 },
+      { label: '生成回复',    threshold: 12 },
+    ],
+    texts: ['正在理解你的需求...', 'AI 思考处理中...', '即将为你生成回复...'],
+    tip: '通常需要 5–20 秒',
+  },
+}
+
+const pipelineStages = ref(PIPELINE_MAP.general.stages)
+const pipelineTip    = ref(PIPELINE_MAP.general.tip)
+
+function startLoadingStages(userText = '') {
+  const intent = detectIntent(userText)
+  const plan   = PIPELINE_MAP[intent]
+
+  pipelineStages.value  = plan.stages
+  pipelineTip.value     = plan.tip
   loadingStageIdx.value = 0
-  loadingSeconds.value = 0
-  loadingText.value = '正在理解你的需求...'
+  loadingSeconds.value  = 0
+  loadingText.value     = plan.texts[0]
 
   loadingTimer = setInterval(() => {
     if (!loading.value) return
     loadingSeconds.value++
-
-    // 根据秒数推展阶段
-    const next = pipelineStages.findLastIndex(s => s.threshold <= loadingSeconds.value)
+    const next = plan.stages.findLastIndex(s => s.threshold <= loadingSeconds.value)
     if (next > loadingStageIdx.value) {
       loadingStageIdx.value = next
-      loadingText.value = [
-        '正在理解你的需求...',
-        'AI 正在创作台本...',
-        '情感解析中，匹配最佳音色...',
-        '正在合成语音，请稍候...',
-        '当心收尾，马上就好...',
-      ][next] || loadingText.value
+      loadingText.value = plan.texts[next] || loadingText.value
     }
   }, 1000)
 }
@@ -474,7 +522,7 @@ async function sendMessage(text) {
   }
 
   loading.value = true
-  startLoadingStages()
+  startLoadingStages(userMsg)
 
   try {
     const res = await request.post('/agent/chat',
