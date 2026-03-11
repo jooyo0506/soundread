@@ -2621,18 +2621,23 @@ const generateFromOutline = async () => {
     const resp = await studioApi.generateContent(projectId.value, structuredData)
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
+    let buffer = '' // buffer：防止 TCP 分片把 data: 行切断后丢失内容
     controller.signal.addEventListener('abort', () => { try { reader.cancel() } catch {} })
 
     while (true) {
       const { value, done } = await reader.read()
       if (done) break
       clearTimeout(timeout)
-      const chunk = decoder.decode(value, { stream: true })
-      for (const line of chunk.split('\n')) {
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() // 保留不完整的行，等待下一个 chunk 补齐
+      for (const line of lines) {
         if (line.startsWith('data:')) streamContent.value += line.substring(5)
       }
       nextTick(() => { const el = streamContentRef.value; if (el) el.scrollTop = el.scrollHeight })
     }
+    // 处理缓冲区残留
+    if (buffer.startsWith('data:')) streamContent.value += buffer.substring(5)
     userInput.value = ''
     chapterTitle.value = ''
     await loadSections()
@@ -3040,14 +3045,23 @@ const rewrite = async (instruction) => {
 
   try {
     const resp = await studioApi.rewriteSection(activeSection.value.id, instruction)
-    const reader = resp.body.getReader(); const decoder = new TextDecoder()
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = '' // buffer：防止 TCP 分片把 data: 行切断后丢失内容
     controller.signal.addEventListener('abort', () => { try { reader.cancel() } catch {} })
     while (true) {
-      const { value, done } = await reader.read(); if (done) break
+      const { value, done } = await reader.read()
+      if (done) break
       clearTimeout(timeout)
-      const chunk = decoder.decode(value, { stream: true })
-      for (const line of chunk.split('\n')) { if (line.startsWith('data:')) streamContent.value += line.substring(5) }
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() // 保留不完整的行，等待下一个 chunk 补齐
+      for (const line of lines) {
+        if (line.startsWith('data:')) streamContent.value += line.substring(5)
+      }
     }
+    // 处理缓冲区残留
+    if (buffer.startsWith('data:')) streamContent.value += buffer.substring(5)
     await loadSections()
     activeSection.value = sections.value.find(s => s.id === activeSection.value.id) || null
     toastStore.show('改写完成 ✏️'); activeTab.value = 'content'
