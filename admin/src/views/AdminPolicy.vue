@@ -167,8 +167,20 @@ const activePolicy = computed(() => {
   return policies.value.find(p => p.id === activePolicyId.value) || policies.value[0]
 })
 
-const featureLabelMap = { tts_basic:'基础合成', tts_emotion_v2:'情感合成', ai_podcast:'智能播客', ai_drama:'AI短剧', ai_script:'智能编排', ai_novel:'AI小说创作', ai_music:'AI音乐', auto_publish:'自动发布' }
-const quotaLabelMap = { tts_daily_chars:'基础合成日字数', tts_v2_daily_chars:'情感合成日字数', ask_daily_count:'日对话数', podcast_daily_count:'日播客数', ai_script_daily_count:'AI编排日次数', storage_max_mb:'存储上限(MB)', max_projects:'作品上限', data_retention_days:'保留天数', novel_daily_chars:'AI小说日字数', novel_max_projects:'AI小说项目上限', music_daily_count:'AI音乐日次数' }
+const featureLabelMap = { tts_basic:'基础合成', tts_emotion_v2:'情感语音合成', ai_podcast:'AI双人播客', ai_drama:'AI广播剧', ai_script:'AI工作台创作', ai_novel:'AI小说创作', ai_music:'AI音乐生成', auto_publish:'自动发布' }
+const quotaLabelMap = {
+  tts_daily_chars:       '基础配音日字数',
+  tts_v2_daily_chars:    '情感语音日字数',       // 覆盖所有 Studio TTS + 配音页
+  ask_daily_count:       '边听边问(已下线)',      // 产品已下线，字段保留
+  podcast_daily_count:   'AI双人播客日次数',      // 独立配额，双倍TTS成本
+  ai_script_daily_count: 'AI工作台日次数',        // 工作台创作+广播剧，不含小说
+  novel_daily_chars:     'AI小说日字数',          // 独立配额，高消耗
+  novel_max_projects:    'AI小说项目上限',
+  music_daily_count:     'AI音乐日次数',
+  storage_max_mb:        '存储上限(MB)',
+  max_projects:          '作品总数上限',
+  data_retention_days:   '保留天数(-1=永久)'
+}
 const resourceLabelMap = { llm_provider:'模型供应商', llm_model:'大模型', llm_base_url:'接口地址', task_priority:'优先级', qps_limit:'并发上限', voice_tier:'音色库' }
 
 const featureLabel = (key) => featureLabelMap[key] || key
