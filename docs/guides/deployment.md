@@ -45,6 +45,11 @@ Jenkins (端口 8080) → 自动构建 → 部署 /opt/sounds-tts/app.jar
 pipeline {
     agent any
 
+    environment {
+        APP_DIR  = '/opt/sounds-tts'
+        APP_PORT = '9090'
+    }
+
     stages {
         stage('拉取代码') {
             steps {
@@ -62,20 +67,70 @@ pipeline {
             }
         }
 
-        stage('重启服务') {
+        stage('部署') {
             steps {
                 sh '''
-                    mkdir -p /opt/sounds-tts
-                    cp server/target/*.jar /opt/sounds-tts/app.jar
+                    # ── Step1: 先复制新 JAR（避免杀进程时 JAR 被占用）──
+                    mkdir -p $APP_DIR
+                    cp server/target/*.jar $APP_DIR/app-new.jar
+
+                    # ── Step2: 优雅关闭旧进程 ──
+                    if [ -f $APP_DIR/app.pid ]; then
+                        OLD_PID=$(cat $APP_DIR/app.pid)
+                        if kill -0 $OLD_PID 2>/dev/null; then
+                            echo "正在停止旧进程 PID=$OLD_PID ..."
+                            kill $OLD_PID || true
+                        fi
+                    fi
+                    # 兜底：确保没有残留 app.jar 进程
                     pkill -f "app.jar" || true
-                    sleep 3
+
+                    # ── Step3: 等端口 9090 完全释放（最多 30 秒）──
+                    echo "等待端口 $APP_PORT 释放..."
+                    for i in $(seq 1 30); do
+                        if ! ss -ltn | grep -q ":$APP_PORT "; then
+                            echo "✅ 端口已释放（${i}s）"
+                            break
+                        fi
+                        if [ $i -eq 30 ]; then
+                            echo "⚠️ 端口 30s 未释放，强制 fuser kill..."
+                            fuser -k ${APP_PORT}/tcp || true
+                            sleep 2
+                        fi
+                        sleep 1
+                    done
+
+                    # ── Step4: 替换 JAR ──
+                    mv $APP_DIR/app-new.jar $APP_DIR/app.jar
                 '''
+
                 sh '''
+                    # ── Step5: 启动新进程 ──
                     export JENKINS_NODE_COOKIE=dontKillMe
-                    cd /opt/sounds-tts
-                    nohup java -Xmx768m -Xms256m -jar app.jar --spring.profiles.active=prod > app.log 2>&1 &
-                    echo "PID: $!" > app.pid
-                    echo "✅ 后端已启动"
+                    cd $APP_DIR
+                    nohup java -Xmx768m -Xms256m -jar app.jar \
+                        --spring.profiles.active=prod \
+                        > app.log 2>&1 &
+                    echo $! > app.pid
+                    echo "新进程 PID: $(cat app.pid)"
+
+                    # ── Step6: 健康检查（最多等 60 秒启动完成）──
+                    echo "等待服务启动..."
+                    for i in $(seq 1 60); do
+                        if curl -sf http://localhost:$APP_PORT/api/health > /dev/null 2>&1; then
+                            echo "✅ 服务已就绪（${i}s）"
+                            exit 0
+                        fi
+                        # 如果进程已经挂了直接报错
+                        if ! kill -0 $(cat $APP_DIR/app.pid) 2>/dev/null; then
+                            echo "❌ 进程已退出，查看日志："
+                            tail -30 $APP_DIR/app.log
+                            exit 1
+                        fi
+                        sleep 1
+                    done
+                    echo "⚠️ 60s 内服务未响应，查看最新日志："
+                    tail -30 $APP_DIR/app.log
                 '''
             }
         }
@@ -83,10 +138,14 @@ pipeline {
 
     post {
         success { echo '✅ 部署成功!' }
-        failure { echo '❌ 部署失败，请查看日志' }
+        failure {
+            sh 'tail -50 /opt/sounds-tts/app.log || true'
+            echo '❌ 部署失败，已打印最新日志'
+        }
     }
 }
 ```
+
 
 ---
 
