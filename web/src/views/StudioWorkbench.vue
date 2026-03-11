@@ -2979,14 +2979,19 @@ const generate = async () => {
 
   try {
     const resp = await studioApi.generateContent(projectId.value, fullInput)
-    const reader = resp.body.getReader(); const decoder = new TextDecoder()
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = '' // buffer：防止 TCP 分片把 data: 行切断后丢失内容
     controller.signal.addEventListener('abort', () => { try { reader.cancel() } catch {} })
 
     while (true) {
-      const { value, done } = await reader.read(); if (done) break
+      const { value, done } = await reader.read()
+      if (done) break
       clearTimeout(timeout)
-      const chunk = decoder.decode(value, { stream: true })
-      for (const line of chunk.split('\n')) {
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() // 保留不完整的行，等待下一个 chunk 补齐
+      for (const line of lines) {
         if (line.startsWith('data:')) {
           let text = line.substring(5)
           // 情感电台：实时过滤 markdown 标记（## 标题、** 加粗、* 斜体）
@@ -2999,6 +3004,15 @@ const generate = async () => {
       // 自动滚动到最新内容
       nextTick(() => { const el = streamContentRef.value; if (el) el.scrollTop = el.scrollHeight })
     }
+    // 处理缓冲区残留（最后一行可能没有换行符结尾）
+    if (buffer.startsWith('data:')) {
+      let text = buffer.substring(5)
+      if (project.value?.typeCode === 'radio') {
+        text = text.replace(/^#{1,3}\s*/gm, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+      }
+      streamContent.value += text
+    }
+
     userInput.value = ''; chapterTitle.value = ''; await loadSections(); await loadProject()
     // 自动展开新章节
     if (sections.value.length > 0) {
