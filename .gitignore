@@ -26,6 +26,7 @@ node_modules/
 .env
 *.local
 **/application.yml
+**/application-prod.yml
 
 # ── Test Data ──
 data/
