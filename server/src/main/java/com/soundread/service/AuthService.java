@@ -18,6 +18,13 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 认证服务 (Sa-Token + JWT)
+ *
+ * <h3>P2-a 优化：User Redis 缓存</h3>
+ * <p>
+ * {@code getCurrentUser()} 是全局最高频 DB 操作，每个认证接口都调用。
+ * 优化方案：先查 Redis（60s TTL），未命中才查 DB 并回填缓存。
+ * Redis 异常时自动降级为直查 DB，保证高可用。
+ * </p>
  */
 @Slf4j
 @Service
@@ -29,6 +36,12 @@ public class AuthService {
     private final TierPolicyService tierPolicyService;
 
     private static final String SMS_CODE_PREFIX = "sms:code:";
+
+    /** 用户信息缓存 key 前缀：cache:user:{userId} */
+    private static final String USER_CACHE_PREFIX = "cache:user:";
+
+    /** 用户缓存 TTL 60 秒（VIP激活/资料修改后主动清除，保证数据一致性） */
+    private static final long USER_CACHE_TTL_SECONDS = 60L;
 
     /**
      * 密码登录
@@ -89,7 +102,6 @@ public class AuthService {
      * 注册
      */
     public AuthDto.LoginResponse register(AuthDto.RegisterRequest req) {
-        // 校验两次密码是否一致
         if (!req.getPassword().equals(req.getConfirmPassword())) {
             throw new BusinessException("两次输入的密码不一致");
         }
@@ -125,17 +137,80 @@ public class AuthService {
     }
 
     /**
-     * 获取当前登录用户
+     * 获取当前登录用户（带 Redis 缓存，60s TTL）
+     *
+     * <p>
+     * 原方案每次请求直接查 MySQL，是全局最高频 DB 操作。
+     * 优化后：先查 Redis，未命中才查 DB 并回填缓存。Redis 异常时降级为直查 DB。
+     * </p>
      */
     public User getCurrentUser() {
         long userId = StpUtil.getLoginIdAsLong();
-        return userMapper.selectById(userId);
+        return getCachedUser(userId);
     }
 
     /**
-     * 退出登录
+     * 按 userId 获取用户（带 Redis 缓存）
+     */
+    public User getCachedUser(long userId) {
+        String key = USER_CACHE_PREFIX + userId;
+
+        // 1. 尝试从 Redis 读取
+        try {
+            String cached = redisTemplate.opsForValue().get(key);
+            if (cached != null) {
+                log.debug("[UserCache] 命中: userId={}", userId);
+                return com.alibaba.fastjson2.JSON.parseObject(cached, User.class);
+            }
+        } catch (Exception e) {
+            log.warn("[UserCache] 读取失败（降级DB）: userId={}, err={}", userId, e.getMessage());
+        }
+
+        // 2. 查 DB
+        User user = userMapper.selectById(userId);
+
+        // 3. 回填 Redis（写入失败不影响业务）
+        if (user != null) {
+            try {
+                String json = com.alibaba.fastjson2.JSON.toJSONString(user);
+                redisTemplate.opsForValue().set(key, json, USER_CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+                log.debug("[UserCache] 写入缓存: userId={}", userId);
+            } catch (Exception e) {
+                log.warn("[UserCache] 写入失败: userId={}, err={}", userId, e.getMessage());
+            }
+        }
+
+        return user;
+    }
+
+    /**
+     * 主动清除用户缓存
+     *
+     * <p>
+     * 调用时机：VIP激活、资料变更、管理员调整 tier_code 后
+     * </p>
+     *
+     * @param userId 用户 ID
+     */
+    public void evictUserCache(long userId) {
+        try {
+            redisTemplate.delete(USER_CACHE_PREFIX + userId);
+            log.debug("[UserCache] 已清除: userId={}", userId);
+        } catch (Exception e) {
+            log.warn("[UserCache] 清除失败: userId={}, err={}", userId, e.getMessage());
+        }
+    }
+
+    /**
+     * 退出登录（同时清除 Redis 用户缓存）
      */
     public void logout() {
+        try {
+            long userId = StpUtil.getLoginIdAsLong();
+            evictUserCache(userId);
+        } catch (Exception ignored) {
+            // 登出时用户可能已不在登录态，忽略
+        }
         StpUtil.logout();
     }
 
@@ -172,8 +247,22 @@ public class AuthService {
      * 运营端修改 tier_code 后，下次路由守卫调用 /me 时自动同步，无需重新登录
      */
     public AuthDto.LoginResponse buildMeResponse() {
-        User user = getCurrentUser();
+        long userId = StpUtil.getLoginIdAsLong();
+        // /me 接口主动绕过缓存，保证运营端修改 tier_code 后立即生效
+        User user = userMapper.selectById(userId);
+        // 同步更新缓存（保持缓存最新状态）
+        if (user != null) {
+            try {
+                String key = USER_CACHE_PREFIX + userId;
+                String json = com.alibaba.fastjson2.JSON.toJSONString(user);
+                redisTemplate.opsForValue().set(key, json, USER_CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.warn("[UserCache] /me 缓存更新失败: userId={}", userId);
+            }
+        }
+
         AuthDto.LoginResponse resp = new AuthDto.LoginResponse();
+        assert user != null;
         resp.setToken(StpUtil.getTokenValue());
         resp.setUserId(user.getId());
         resp.setNickname(user.getNickname());

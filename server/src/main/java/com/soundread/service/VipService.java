@@ -15,6 +15,7 @@ import com.soundread.model.entity.User;
 import com.soundread.model.entity.VipOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,8 @@ public class VipService {
     private final UserMapper userMapper;
     private final AlipayClient alipayClient;
     private final AlipayProperties alipayProps;
+    @Lazy
+    private final AuthService authService;
 
     // ==================== 套餐配置 ====================
 
@@ -214,6 +217,9 @@ public class VipService {
         user.setVipExpireTime(expireAt);
         user.setTierCode(tierCode);
         userMapper.updateById(user);
+
+        // ★ P2-a 缓存清除：VIP 激活后清除 Redis 用户缓存，保证下次请求读到最新 VIP 状态
+        authService.evictUserCache(user.getId());
 
         log.info("VIP 激活: userId={}, tierCode={}, expireAt={}", user.getId(), tierCode, expireAt);
     }

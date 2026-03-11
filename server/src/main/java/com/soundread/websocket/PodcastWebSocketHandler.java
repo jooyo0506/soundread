@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
 /**
  * 播客 WebSocket 流式生成 Handler
@@ -57,6 +58,10 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
     private final UserMapper userMapper;
     private final R2StorageAdapter r2StorageAdapter;
     private final CreationService creationService;
+
+    /** R2 音频上传专用线程池（来自 AsyncConfig，与 WebSocket 线程隔离） */
+    @org.springframework.beans.factory.annotation.Qualifier("r2UploadExecutor")
+    private final Executor r2UploadExecutor;
 
     /** 活跃会话映射（WebSocket sessionId → PodcastSession） */
     private final Map<String, PodcastClient.PodcastSession> activeSessions = new ConcurrentHashMap<>();
@@ -178,7 +183,7 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
 
                     @Override
                     public void onComplete(String audioUrl) {
-                        // ===== 生成成功 → 才扣减配额 =====
+                        // ===== Step 1: 先扣减配额 =====
                         if (currentUser != null) {
                             try {
                                 quotaService.deductPodcastQuota(currentUser);
@@ -186,16 +191,23 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
                                 log.warn("[Podcast WS] 配额扣减失败: {}", e.getMessage());
                             }
                         }
-                        // ===== 持久化到 R2 和数据库 =====
-                        String permanentUrl = persistPodcast(currentUser, audioUrl, inputText,
-                                finalVoiceA, roundTexts, (int) Math.round(totalDuration[0]));
 
-                        if (!isActive(sessionId))
-                            return;
-                        JSONObject event = new JSONObject();
-                        event.put("event", "complete");
-                        event.put("audioUrl", permanentUrl != null ? permanentUrl : audioUrl);
-                        sendText(session, event.toJSONString());
+                        // ===== Step 2: ★ 立即通知前端（不等 R2 上传完成，消除 10-30s 等待）=====
+                        if (isActive(sessionId)) {
+                            JSONObject event = new JSONObject();
+                            event.put("event", "complete");
+                            event.put("audioUrl", audioUrl); // 先给临时 URL，R2 持久化后前端以历史记录为准
+                            sendText(session, event.toJSONString());
+                        }
+
+                        // ===== Step 3: ★ 异步持久化（独立 r2UploadExecutor 线程，不阻塞 WebSocket）=====
+                        java.util.concurrent.CompletableFuture.runAsync(
+                                () -> persistPodcast(currentUser, audioUrl, inputText,
+                                        finalVoiceA, roundTexts, (int) Math.round(totalDuration[0])),
+                                r2UploadExecutor).exceptionally(ex -> {
+                                    log.error("[Podcast WS] 异步持久化失败", ex);
+                                    return null;
+                                });
                     }
 
                     @Override
