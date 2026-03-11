@@ -27,16 +27,14 @@ public class QuotaService {
      */
     public void checkAndDeductTextQuota(User user, int charCount) {
         int limit = getQuotaLimit(user, "ttsDailyChars");
-        if (limit == -1) {
-            return; // 无限额
-        }
-
-        String key = quotaKey(user.getId(), "text");
-        long used = increment(key, charCount);
-        if (used > limit) {
+        if (limit == -1)
+            return;
+        long used = getDailyUsage(user.getId(), "text");
+        if (used + charCount > limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日基础合成额度 (%d 字) 已用完，请升级解锁更多", limit));
         }
+        increment(quotaKey(user.getId(), "text"), charCount);
     }
 
     /**
@@ -44,16 +42,14 @@ public class QuotaService {
      */
     public void checkAndDeductTextV2Quota(User user, int charCount) {
         int limit = getQuotaLimit(user, "ttsV2DailyChars");
-        if (limit == -1) {
-            return; // 无限额
-        }
-
-        String key = quotaKey(user.getId(), "text_v2");
-        long used = increment(key, charCount);
-        if (used > limit) {
+        if (limit == -1)
+            return;
+        long used = getDailyUsage(user.getId(), "text_v2");
+        if (used + charCount > limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日情感合成额度 (%d 字) 已用完，请升级解锁更多", limit));
         }
+        increment(quotaKey(user.getId(), "text_v2"), charCount);
     }
 
     /**
@@ -61,16 +57,14 @@ public class QuotaService {
      */
     public void checkAndDeductAskQuota(User user) {
         int limit = getQuotaLimit(user, "askDailyCount");
-        if (limit == -1) {
-            return; // 无限额
-        }
-
-        String key = quotaKey(user.getId(), "ask");
-        long used = increment(key, 1);
-        if (used > limit) {
+        if (limit == -1)
+            return;
+        long used = getDailyUsage(user.getId(), "ask");
+        if (used >= limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日互动额度 (%d 次) 已用完，请升级解锁更多", limit));
         }
+        increment(quotaKey(user.getId(), "ask"), 1);
     }
 
     /**
@@ -78,16 +72,14 @@ public class QuotaService {
      */
     public void checkAndDeductAiScriptQuota(User user) {
         int limit = getQuotaLimit(user, "aiScriptDailyCount");
-        if (limit == -1) {
-            return; // 无限额
-        }
-
-        String key = quotaKey(user.getId(), "ai_script");
-        long used = increment(key, 1);
-        if (used > limit) {
+        if (limit == -1)
+            return;
+        long used = getDailyUsage(user.getId(), "ai_script");
+        if (used >= limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日 AI 剧本生成配额 (%d 次) 已用完，请明天再来", limit));
         }
+        increment(quotaKey(user.getId(), "ai_script"), 1);
     }
 
     /**
@@ -122,16 +114,14 @@ public class QuotaService {
      */
     public void checkAndDeductNovelCharsQuota(User user, int charCount) {
         int limit = getQuotaLimit(user, "novelDailyChars");
-        if (limit == -1) {
-            return; // 无限额
-        }
-
-        String key = quotaKey(user.getId(), "novel");
-        long used = increment(key, charCount);
-        if (used > limit) {
+        if (limit == -1)
+            return;
+        long used = getDailyUsage(user.getId(), "novel");
+        if (used + charCount > limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日小说合成额度 (%d 字) 已用完，请升级解锁更多 📖", limit));
         }
+        increment(quotaKey(user.getId(), "novel"), charCount);
     }
 
     /**
@@ -143,12 +133,12 @@ public class QuotaService {
             return; // 无限额
         }
 
-        String key = quotaKey(user.getId(), "music");
-        long used = increment(key, 1);
-        if (used > limit) {
+        long used = getDailyUsage(user.getId(), "music");
+        if (used >= limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日 AI 音乐配额 (%d 次) 已用完，请明天再来 🎵", limit));
         }
+        increment(quotaKey(user.getId(), "music"), 1);
     }
 
     /**
