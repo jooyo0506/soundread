@@ -25,7 +25,8 @@ const AUTH_WHITELIST = ['/auth/me']
 // 创建 Axios 实例
 const request = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-    timeout: 60000,     // AI 生成可能时间较长，设置 60s
+    // 普通接口 10s 超时；AI 生成等长耗时接口在调用时单独传 { timeout: 120000 } 覆盖
+    timeout: 10000,
     headers: {
         'Content-Type': 'application/json'
     }

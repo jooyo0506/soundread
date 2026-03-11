@@ -76,8 +76,14 @@ export const usePlayerStore = defineStore('player', {
 
             this.audio = new Audio()
 
+            // ★ 节流 500ms，避免每 250ms 触发一次 Pinia 响应式更新
+            let _lastTimeUpdate = 0
             this.audio.addEventListener('timeupdate', () => {
-                this.currentTime = this.audio.currentTime
+                const now = Date.now()
+                if (now - _lastTimeUpdate > 500) {
+                    this.currentTime = this.audio.currentTime
+                    _lastTimeUpdate = now
+                }
             })
 
             this.audio.addEventListener('loadedmetadata', () => {

@@ -37,8 +37,8 @@
           <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-400/15 rounded-full blur-2xl -mr-6 -mt-6"></div>
           <!-- 波形装饰 -->
           <div class="absolute bottom-3 right-4 flex items-end gap-[3px] opacity-40">
-            <div v-for="i in 6" :key="'w'+i" class="w-[3px] rounded-full bg-emerald-300 animate-wave"
-                 :style="{ height: (6 + Math.random() * 18) + 'px', animationDelay: (i * 0.15) + 's' }"></div>
+            <div v-for="(h, i) in bannerWaves" :key="i" class="w-[3px] rounded-full bg-emerald-300 animate-wave"
+                 :style="{ height: h + 'px', animationDelay: (i * 0.15) + 's' }"></div>
           </div>
           <div class="relative z-10 p-4 h-full flex flex-col justify-between">
             <span class="text-[9px] font-bold text-emerald-200 bg-black/20 px-2 py-0.5 rounded-full w-fit backdrop-blur-sm"><i class="fas fa-podcast mr-1"></i>AI 双播</span>
@@ -81,14 +81,16 @@
     </div>
 
     <!-- ═══ 作品列表 ═══ -->
-    <div class="flex-1 overflow-y-auto px-4 pb-24 hide-scrollbar">
+    <div ref="scrollEl" class="flex-1 overflow-y-auto px-4 pb-24 hide-scrollbar" @scroll.passive="handleScroll">
       <div class="flex justify-between items-center mb-3 mt-1">
         <h3 class="text-white font-bold text-sm">{{ activeCategoryLabel }}</h3>
         <span class="text-[10px] text-gray-600">{{ works.length }} 项</span>
       </div>
 
       <div class="grid grid-cols-2 gap-2.5">
-        <div v-for="work in works" :key="work.id" @click="handleClick(work)"
+        <div v-for="work in works" :key="work.id"
+             v-memo="[work.isLiked, work.likeCount, work.playCount]"
+             @click="handleClick(work)"
              class="rounded-xl overflow-hidden cursor-pointer group transition-all duration-200 hover:scale-[1.02] bg-[#141414] border border-white/[0.04] hover:border-white/10 relative">
 
           <!-- 作者管理按钮（仅自己的作品可见） -->
@@ -192,7 +194,7 @@
           <template v-else>
             <div class="h-24 relative overflow-hidden bg-gradient-to-br from-[#4F46E5]/40 via-[#6D28D9]/25 to-[#7C3AED]/20">
               <div class="absolute top-0 right-0 w-16 h-16 bg-violet-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
-              <img v-if="work.coverUrl" :src="work.coverUrl" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity" />
+              <img v-if="work.coverUrl" :src="work.coverUrl" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity" />
               <div class="absolute inset-0 flex flex-col justify-between p-3" :class="work.coverUrl ? 'bg-gradient-to-t from-black/70 via-transparent to-transparent' : ''">
                 <span class="inline-flex items-center gap-1 text-[8px] font-bold text-violet-300/80 bg-violet-500/10 px-1.5 py-0.5 rounded w-fit">
                   <i class="fas fa-headphones"></i> 语音
@@ -220,10 +222,6 @@
           </template>
         </div>
         
-        <!-- 加载更多 -->
-        <div v-if="works.length > 0 && hasMore" class="col-span-2 py-3 flex justify-center">
-           <button @click="loadWorks" class="px-5 py-1.5 rounded-full border border-white/8 text-[10px] text-gray-500 hover:text-white hover:bg-white/5 transition-colors cursor-pointer">加载更多</button>
-        </div>
 
         <!-- 空状态 -->
         <div v-if="works.length === 0 && !loading" class="col-span-2 py-12 text-center">
@@ -333,6 +331,34 @@ const router = useRouter()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
+
+// ==================== 波形预计算（只初始化一次，防止重渲染跳变） ====================
+
+/** 顶部横幅波形高度（6条，固定值） */
+const bannerWaves = Array.from({ length: 6 }, () => 6 + Math.random() * 18)
+
+/** 播客/音乐卡片波形缓存，key=workId，每个作品只算一次 */
+const _waveCache = new Map()
+const getCardWaves = (workId) => {
+    if (!_waveCache.has(workId)) {
+        _waveCache.set(workId, Array.from({ length: 7 }, () => 4 + Math.random() * 12))
+    }
+    return _waveCache.get(workId)
+}
+
+// ==================== 无限滚动 ====================
+
+/** 滚动容器 ref */
+const scrollEl = ref(null)
+
+/** 距底部 80px 时自动加载下一页（替代「加载更多」按钮） */
+const handleScroll = () => {
+    const el = scrollEl.value
+    if (!el || loading.value || !hasMore.value) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+        loadWorks()
+    }
+}
 
 // ==================== 分类 ====================
 
