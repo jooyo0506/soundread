@@ -30,9 +30,9 @@
         <!-- 推荐套餐 (长卡片) -->
         <div 
           v-if="recommendedPlan"
-          @click="selectedPlan = recommendedPlan.id" 
+          @click="selectedPlan = recommendedPlan.planId" 
           class="glass-panel rounded-2xl p-4 flex justify-between items-center cursor-pointer transition-all relative overflow-hidden group mb-1" 
-          :class="selectedPlan === recommendedPlan.id ? 'plan-selected' : 'border-white/10 hover:border-white/20'"
+          :class="selectedPlan === recommendedPlan.planId ? 'plan-selected' : 'border-white/10 hover:border-white/20'"
         >
           <div v-if="recommendedPlan.originalPrice > recommendedPlan.price" class="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg shadow-md">🔥 超值特惠</div>
           
@@ -53,10 +53,10 @@
         <div class="flex gap-3">
           <div 
             v-for="plan in otherPlans" 
-            :key="plan.id"
-            @click="selectedPlan = plan.id" 
+            :key="plan.planId"
+            @click="selectedPlan = plan.planId" 
             class="flex-1 glass-panel rounded-2xl p-4 flex flex-col justify-between cursor-pointer transition-all group relative overflow-hidden" 
-            :class="selectedPlan === plan.id ? 'plan-selected' : 'border-white/10 hover:border-white/20'"
+            :class="selectedPlan === plan.planId ? 'plan-selected' : 'border-white/10 hover:border-white/20'"
           >
             <div class="mb-2">
               <h4 class="text-white font-bold text-sm mb-0.5">{{ plan.name }}</h4>
@@ -151,18 +151,16 @@ const plans = ref([])
 const selectedPlan = ref(null)
 const isPaying = ref(false)
 
-// 推荐套餐：优先取有 originalPrice 的（促销款），否则取最贵的
+// 推荐套餐：固定月付套餐（主推低门槛）
 const recommendedPlan = computed(() => {
   if (plans.value.length === 0) return null
-  const promo = plans.value.find(p => p.originalPrice && p.originalPrice > p.price)
-  if (promo) return promo
-  return [...plans.value].sort((a, b) => b.price - a.price)[0]
+  return plans.value.find(p => p.planId === 'vip_month') || plans.value[0]
 })
 
-// 其余套餐
+// 其余套餐（年付/终身）
 const otherPlans = computed(() => {
   if (!recommendedPlan.value) return plans.value
-  return plans.value.filter(p => p.id !== recommendedPlan.value.id)
+  return plans.value.filter(p => p.planId !== recommendedPlan.value.planId)
 })
 
 // 格式化天数显示
@@ -176,20 +174,19 @@ const formatDuration = (days) => {
 
 const loadPlans = async () => {
     try {
-        // 假设后台返回的列表中商品 id 分别是 vip_month, vip_year, vip_lifetime
         const res = await vipApi.getPlans()
         if (res && res.length > 0) {
             plans.value = res
-            selectedPlan.value = plans.value[0].id // 默认选中第一项
+            selectedPlan.value = 'vip_month' // 默认选中月付
         }
     } catch(e) {
-        // Mock fallback if api not ready
+        // Mock fallback（后端未启动时）
         plans.value = [
-            { id: 'vip_month', name: '月度体验', durationDays: 30, price: 30 },
-            { id: 'vip_lifetime', name: '终身 VIP', durationDays: 9999, price: 1000 },
-            { id: 'vip_year', name: '年度 VIP', durationDays: 365, price: 300, originalPrice: 360 }
+            { planId: 'vip_month',    name: '月度体验', durationDays: 30,   price: 30 },
+            { planId: 'vip_year',     name: '年度 VIP', durationDays: 365,  price: 300, originalPrice: 360 },
+            { planId: 'vip_lifetime', name: '终身 VIP', durationDays: 9999, price: 1000 }
         ]
-        selectedPlan.value = 'vip_year'
+        selectedPlan.value = 'vip_month'
     }
 }
 
