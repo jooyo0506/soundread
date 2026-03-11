@@ -325,6 +325,7 @@ const publishTitle = ref('')
 const publishing = ref(false)
 const publishProgress = ref('')
 const published = ref(false)
+const finalAudioUrl = ref('')  // 后端 complete 事件返回的 R2 地址，直接用于发布
 
 // 退出确认弹窗
 const showExitModal = ref(false)
@@ -411,6 +412,7 @@ const podcastWs = useWebSocket('/ws/podcast', {
         } else if (msg.event === 'complete') {
           isGenerating.value = false
           generationDone.value = true
+          finalAudioUrl.value = msg.audioUrl || ''  // 保存后端已上传好的 R2 地址
           publishTitle.value = sourceContent.value.length > 30 
             ? sourceContent.value.substring(0, 30) + '...' 
             : sourceContent.value
@@ -547,26 +549,30 @@ onBeforeUnmount(() => {
 
 const publishPodcast = async () => {
   if (publishing.value || published.value) return
-  if (allAudioChunks.length === 0) {
+
+  // 优先使用后端已上传的 R2 地址（避免前端重复上传大文件）
+  const audioUrl = finalAudioUrl.value
+  if (!audioUrl && allAudioChunks.length === 0) {
     toastStore.show('没有可发布的音频')
     return
   }
 
   publishing.value = true
-  publishProgress.value = '🔄 合并音频中...'
+  publishProgress.value = '📝 创建项目中...'
 
   try {
-    // 1. 合并所有音频块为一个 Blob
-    const mergedBlob = new Blob(allAudioChunks, { type: 'audio/mpeg' })
-    
-    // 2. 上传到 R2 持久化
-    publishProgress.value = '☁️ 上传音频中...'
-    const uploadRes = await studioApi.uploadAudio(mergedBlob, `podcast_${Date.now()}.mp3`)
-    const audioUrl = uploadRes.audioUrl || uploadRes
-    if (!audioUrl) throw new Error('上传失败：未返回音频地址')
+    let resolvedAudioUrl = audioUrl
 
-    // 3. 创建 Studio 项目
-    publishProgress.value = '📝 创建项目中...'
+    // 仅当后端没有返回 URL 时（降级），才从前端上传
+    if (!resolvedAudioUrl && allAudioChunks.length > 0) {
+      publishProgress.value = '☁️ 上传音频中...'
+      const mergedBlob = new Blob(allAudioChunks, { type: 'audio/mpeg' })
+      const uploadRes = await studioApi.uploadAudio(mergedBlob, `podcast_${Date.now()}.mp3`)
+      resolvedAudioUrl = uploadRes.audioUrl || uploadRes
+      if (!resolvedAudioUrl) throw new Error('上传失败：未返回音频地址')
+    }
+
+    // 创建 Studio 项目
     const title = publishTitle.value.trim() || sourceContent.value.substring(0, 30)
     const project = await studioApi.createProject({
       typeCode: 'podcast',
@@ -574,7 +580,7 @@ const publishPodcast = async () => {
       inspiration: sourceContent.value.substring(0, 200)
     })
 
-    // 4. 保存段落（对话全文 + 音频地址）
+    // 保存段落
     publishProgress.value = '💾 保存内容中...'
     const allText = dialogueRounds.value
       .map(r => `${r.speakerName}：${r.text}`)
@@ -585,11 +591,11 @@ const publishPodcast = async () => {
       title: title,
       content: allText,
       voiceId: getActivePreset().voiceA,
-      audioUrl: audioUrl,
+      audioUrl: resolvedAudioUrl,
       status: 'synthesized'
     })
 
-    // 5. 发布到发现页
+    // 发布到发现页
     publishProgress.value = '📤 发布中...'
     await studioApi.publishProject(project.id)
 
