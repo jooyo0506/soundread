@@ -37,8 +37,13 @@ export const useAuthStore = defineStore('auth', {
          * @example authStore.hasFeature('ai_script')
          */
         hasFeature: (state) => (featureName) => {
-            if (!state.policy?.featureFlags) { return false }
-            return !!state.policy.featureFlags[featureName]
+            if (state.policy?.featureFlags) {
+                const flag = state.policy.featureFlags[featureName]
+                if (flag === true) return true   // 明确开启
+                if (flag === false) return false  // 明确关闭
+                // 未配置 → 降级到 VIP 状态判断（兼容手动改库、policy 过期）
+            }
+            return state.user?.vip || false
         },
 
         /**
