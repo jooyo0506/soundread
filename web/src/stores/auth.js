@@ -100,12 +100,13 @@ export const useAuthStore = defineStore('auth', {
             try {
                 const userInfo = await authApi.getUserInfo()
                 this.user = {
-                    userId: userInfo.id,
+                    // 兼容新格式(LoginResponse: userId/vip/admin)和旧格式(User: id/vipLevel/role)
+                    userId: userInfo.userId || userInfo.id,
                     nickname: userInfo.nickname,
-                    vip: userInfo.vipLevel > 0,
-                    admin: userInfo.role === 'admin'
+                    vip: userInfo.vip ?? (userInfo.vipLevel > 0),
+                    admin: userInfo.admin ?? (userInfo.role === 'admin')
                 }
-                // 如果后端返回了策略配置则同步缓存
+                // /me 现在始终返回最新 policy，强制更新（运营端改策略后自动生效）
                 if (userInfo?.policy) {
                     this.setPolicy(userInfo.policy)
                 }

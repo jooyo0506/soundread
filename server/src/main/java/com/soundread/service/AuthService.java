@@ -166,4 +166,23 @@ public class AuthService {
 
         return resp;
     }
+
+    /**
+     * 构建 /me 接口响应（含实时从 DB 加载的最新 policy，不触发登录）
+     * 运营端修改 tier_code 后，下次路由守卫调用 /me 时自动同步，无需重新登录
+     */
+    public AuthDto.LoginResponse buildMeResponse() {
+        User user = getCurrentUser();
+        AuthDto.LoginResponse resp = new AuthDto.LoginResponse();
+        resp.setToken(StpUtil.getTokenValue());
+        resp.setUserId(user.getId());
+        resp.setNickname(user.getNickname());
+        resp.setVip(user.isVip());
+        resp.setAdmin("admin".equals(user.getRole()));
+        // 实时从 DB 加载（绕过缓存，保证运营端修改立即生效）
+        TierPolicyDto.UserPolicy policy = tierPolicyService.buildUserPolicy(
+                user.getTierCode() != null ? user.getTierCode() : "user");
+        resp.setPolicy(policy);
+        return resp;
+    }
 }

@@ -48,8 +48,8 @@ public class AuthController {
         }
 
         @GetMapping("/me")
-        public Result<User> me() {
-                return Result.ok(authService.getCurrentUser());
+        public Result<AuthDto.LoginResponse> me() {
+                return Result.ok(authService.buildMeResponse());
         }
 
         /**
