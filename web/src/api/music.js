@@ -14,7 +14,8 @@ export const musicApi = {
      * @returns {Promise<{ taskId, status }>}
      */
     generate(data) {
-        return request.post('/music/generate', data)
+        // AI 音乐生成耗时较长，单独设置 60s 超时（覆盖全局 10s）
+        return request.post('/music/generate', data, { timeout: 60000 })
     },
 
     /**
@@ -23,7 +24,8 @@ export const musicApi = {
      * @returns {Promise<{ title, lyrics }>}
      */
     generateLyrics(prompt) {
-        return request.post('/music/lyrics', { prompt })
+        // AI 写词调用 LLM，耗时较长，单独设置 60s 超时
+        return request.post('/music/lyrics', { prompt }, { timeout: 60000 })
     },
 
     /**

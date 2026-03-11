@@ -19,7 +19,8 @@ export const ttsApi = {
      * @param {Object} data - { text, voiceId, speedRatio, volumeRatio, pitchRatio }
      */
     synthesizeShort(data) {
-        return request.post('/tts/short', data)
+        // TTS 合成调用云端 API，单独设置 30s 超时
+        return request.post('/tts/short', data, { timeout: 30000 })
     },
 
     /**
@@ -28,7 +29,8 @@ export const ttsApi = {
      * @returns {Promise<string>} 任务 ID
      */
     submitLongText(data) {
-        return request.post('/tts/long-text', data)
+        // 长文本任务提交，单独设置 30s 超时
+        return request.post('/tts/long-text', data, { timeout: 30000 })
     },
 
     /**
@@ -47,7 +49,8 @@ export const ttsApi = {
      * @param {Object} data - { text?, voiceId }
      */
     preview(data) {
-        return request.post('/tts/preview', data)
+        // 试听也调外部 TTS API，单独设置 20s 超时
+        return request.post('/tts/preview', data, { timeout: 20000 })
     }
 }
 
@@ -66,6 +69,7 @@ export const podcastApi = {
      * @param {Object} data - { topic, sourceType, sourceContent, voiceA, voiceB }
      */
     generatePodcast(data) {
-        return request.post('/podcast/generate', data)
+        // AI 播客生成，单独设置 120s 超时（内容生成+TTS 耐时较长）
+        return request.post('/podcast/generate', data, { timeout: 120000 })
     }
 }

@@ -53,7 +53,7 @@ export const studioApi = {
     getProject: (id) => request.get(`/studio/projects/${id}`),
 
     /** AI 大纲+角色生成（支持结构化参数） */
-    generateOutline: (id, params) => request.post(`/studio/projects/${id}/outline`, params || {}),
+    generateOutline: (id, params) => request.post(`/studio/projects/${id}/outline`, params || {}, { timeout: 60000 }),
 
     /** 更新项目 (标题/大纲/角色) */
     updateProject: (id, data) => request.put(`/studio/projects/${id}`, data),
