@@ -122,57 +122,74 @@ public class VipService {
 
     /**
      * 处理支付宝异步通知
-     * 必须幂等，同一笔交易可能收到多次通知
+     *
+     * <p>
+     * 三道可靠性防线：
+     * </p>
+     * <ol>
+     * <li>RSA2 验签 — 防伪造回调</li>
+     * <li>DB CAS 原子更新 — UPDATE WHERE status='pending'，防并发双写（高并发下多个 notify
+     * 同时到达，MySQL 行锁保证只有1个成功）</li>
+     * <li>@Transactional — activateUserVip 失败自动回滚 status 回 pending，支付宝重试时可再次激活</li>
+     * </ol>
      */
     @Transactional(rollbackFor = Exception.class)
     public String handleAlipayNotify(Map<String, String> params) {
         try {
-            // 1. 验签
+            // ===== 1. 验签（防伪造） =====
             boolean signOk = AlipaySignature.rsaCheckV1(
                     params, alipayProps.getPublicKey(), "UTF-8", "RSA2");
             if (!signOk) {
-                log.warn("支付宝回调签名验证失败: params={}", params);
+                log.warn("[VipNotify] 签名验证失败: params={}", params);
                 return "fail";
             }
 
-            // 2. 只处理 trade_success 状态
+            // ===== 2. 只处理 TRADE_SUCCESS / TRADE_FINISHED =====
             String tradeStatus = params.get("trade_status");
             if (!"TRADE_SUCCESS".equals(tradeStatus) && !"TRADE_FINISHED".equals(tradeStatus)) {
-                return "success"; // 其他状态直接返回 success（告诉支付宝不再重试）
+                return "success"; // 其他状态告知支付宝不再重试
             }
 
             String orderNo = params.get("out_trade_no");
             String alipayTradeNo = params.get("trade_no");
 
-            // 3. 查订单
+            // ===== 3. 查订单（确认存在）=====
             VipOrder order = vipOrderMapper.selectOne(
                     new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
             if (order == null) {
-                log.error("回调订单不存在: orderNo={}", orderNo);
+                log.error("[VipNotify] 订单不存在: orderNo={}", orderNo);
                 return "fail";
             }
 
-            // 4. 幂等：已支付不重复处理
-            if ("paid".equals(order.getStatus())) {
+            // ===== 4. ★ CAS 原子更新（核心并发防护）=====
+            // UPDATE vip_order SET status='paid' WHERE order_no=? AND status='pending'
+            // MySQL 行锁保证并发 notify 中只有1个线程 updated=1，其余为0
+            int updated = vipOrderMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<VipOrder>()
+                            .eq(VipOrder::getOrderNo, orderNo)
+                            .eq(VipOrder::getStatus, "pending") // CAS 条件
+                            .set(VipOrder::getStatus, "paid")
+                            .set(VipOrder::getAlipayTradeNo, alipayTradeNo)
+                            .set(VipOrder::getPayTime, LocalDateTime.now())
+                            .set(VipOrder::getNotifyRaw, params.toString()));
+
+            if (updated == 0) {
+                // 已被其他线程处理（并发重试）→ 幂等返回成功
+                log.info("[VipNotify] 已处理，幂等跳过: orderNo={}", orderNo);
                 return "success";
             }
 
-            // 5. 更新订单状态
-            order.setStatus("paid");
-            order.setAlipayTradeNo(alipayTradeNo);
-            order.setPayTime(LocalDateTime.now());
-            order.setNotifyRaw(params.toString());
-            vipOrderMapper.updateById(order);
+            // ===== 5. 激活 VIP（在事务内，失败会回滚 status 回 pending，支付宝可继续重试）=====
+            VipOrder paid = vipOrderMapper.selectOne(
+                    new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
+            activateUserVip(paid);
 
-            // 6. 激活用户 VIP
-            activateUserVip(order);
-
-            log.info("支付宝回调处理成功: orderNo={}, alipayTradeNo={}", orderNo, alipayTradeNo);
+            log.info("[VipNotify] 处理成功: orderNo={}, alipayTradeNo={}", orderNo, alipayTradeNo);
             return "success";
 
         } catch (Exception e) {
-            log.error("支付宝回调处理异常", e);
-            return "fail";
+            log.error("[VipNotify] 处理异常（事务回滚，支付宝将重试）", e);
+            return "fail"; // 支付宝 25 小时内最多重试 25 次
         }
     }
 
