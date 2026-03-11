@@ -85,6 +85,17 @@
             placeholder="[Verse]&#10;在暴风雨的夜晚&#10;想着你的温柔笑脸&#10;&#10;[Chorus]&#10;..."
             class="w-full h-[130px] bg-transparent text-sm text-white placeholder-gray-700 resize-none focus:outline-none font-mono leading-relaxed hide-scrollbar"
           ></textarea>
+
+          <!-- AI 自动回填的歌名（生成歌词后展示） -->
+          <Transition name="slide-down">
+            <div v-if="songTitle" class="flex items-center gap-2 pt-2.5 mt-2.5 border-t border-fuchsia-500/20">
+              <span class="text-[10px] shrink-0 text-fuchsia-400 font-bold">✨ AI 歌名</span>
+              <input v-model="songTitle" maxlength="50"
+                     class="flex-1 text-sm font-bold text-white bg-transparent focus:outline-none placeholder-gray-600 min-w-0"
+                     placeholder="歌名" />
+              <span class="text-[10px] text-gray-600 shrink-0">可修改</span>
+            </div>
+          </Transition>
         </div>
       </Transition>
 
@@ -293,6 +304,7 @@ const toastStore = useToastStore()
 const mode = ref('instrumental')
 const prompt = ref('')
 const lyrics = ref('')
+const songTitle = ref('')       // AI 生成或手动输入的歌名
 const selectedModel = ref('mureka-7.6')
 const generating = ref(false)
 const lyricsLoading = ref(false)
@@ -327,9 +339,11 @@ const startGenerate = async () => {
       type: mode.value,
       prompt: prompt.value,
       lyrics: mode.value === 'song' ? lyrics.value : undefined,
-      model: selectedModel.value
+      model: selectedModel.value,
+      title: songTitle.value || undefined    // 传入 AI 生成的歌名
     })
-    currentTask.value = { id: res.taskId, status: res.status, title: prompt.value.substring(0, 20) }
+    const displayTitle = songTitle.value || prompt.value.substring(0, 20)
+    currentTask.value = { id: res.taskId, status: res.status, title: displayTitle }
     toastStore.show('🎵 任务已提交，AI 正在创作中...')
     startPolling()
     loadTasks()
@@ -345,7 +359,13 @@ const aiGenerateLyrics = async () => {
   try {
     const res = await musicApi.generateLyrics(prompt.value)
     lyrics.value = res.lyrics || ''
-    toastStore.show('✨ 歌词生成完成')
+    // 自动回填 AI 生成的歌名
+    if (res.title) {
+      songTitle.value = res.title
+      toastStore.show('✨ 歌词和歌名已生成')
+    } else {
+      toastStore.show('✨ 歌词生成完成')
+    }
   } catch (e) {
     toastStore.show('歌词生成失败: ' + (e.message || '请重试'))
   } finally {

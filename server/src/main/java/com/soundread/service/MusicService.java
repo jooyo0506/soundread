@@ -57,7 +57,7 @@ public class MusicService {
      * @param model    模型选择
      * @return 任务信息
      */
-    public MusicTask submitGenerate(String taskType, String prompt, String lyrics, String model) {
+    public MusicTask submitGenerate(String taskType, String prompt, String lyrics, String model, String title) {
         Long userId = StpUtil.getLoginIdAsLong();
 
         MusicTask task = new MusicTask();
@@ -68,11 +68,16 @@ public class MusicService {
         task.setModel(model);
         task.setStatus("processing");
 
-        // 生成标题
-        String title = prompt != null && prompt.length() > 20
-                ? prompt.substring(0, 20) + "..."
-                : (prompt != null ? prompt : "AI 音乐");
-        task.setTitle(title);
+        // 标题：优先使用 AI 生成的歌名，降级截取 prompt
+        String taskTitle;
+        if (title != null && !title.isBlank()) {
+            taskTitle = title.trim();
+        } else if (prompt != null && prompt.length() > 20) {
+            taskTitle = prompt.substring(0, 20) + "...";
+        } else {
+            taskTitle = prompt != null ? prompt : "AI 音乐";
+        }
+        task.setTitle(taskTitle);
 
         try {
             String murekaTaskId;
@@ -116,10 +121,28 @@ public class MusicService {
                 new SystemMessage(systemPrompt),
                 new UserMessage(userPrompt));
 
-        String lyrics = result.content().text().trim();
-        log.info("[MusicService] DeepSeek 歌词生成完成, prompt={}, length={}", prompt, lyrics.length());
+        String raw = result.content().text().trim();
+        log.info("[MusicService] DeepSeek 歌词生成完成, prompt={}, length={}", prompt, raw.length());
 
-        return Map.of("lyrics", lyrics);
+        // ★ 解析 TITLE: 行——与歌词分离
+        String title;
+        String lyrics;
+        var titlePattern = java.util.regex.Pattern.compile(
+                "(?i)^TITLE:\\s*(.+)$", java.util.regex.Pattern.MULTILINE);
+        var matcher = titlePattern.matcher(raw);
+        if (matcher.find()) {
+            title = matcher.group(1).trim();
+            // 移除 TITLE: 行，保留纯歌词
+            lyrics = raw.replaceFirst("(?i)TITLE:.*\\r?\\n?", "").trim();
+        } else {
+            // LLM 没按格式输出：降级使用 prompt 居头当标题
+            log.warn("[MusicService] LLM 未输出 TITLE: 行，降级处理, raw={}...", raw.substring(0, Math.min(100, raw.length())));
+            title = prompt.length() > 25 ? prompt.substring(0, 25) : prompt;
+            lyrics = raw;
+        }
+
+        log.info("[MusicService] 解析成功: title='{}', lyricsLength={}", title, lyrics.length());
+        return java.util.Map.of("title", title, "lyrics", lyrics);
     }
 
     /**

@@ -41,7 +41,7 @@ public class MusicController {
             User user = authService.getCurrentUser();
             quotaService.checkAndDeductMusicQuota(user);
             MusicTask task = musicService.submitGenerate(
-                    req.getType(), req.getPrompt(), req.getLyrics(), req.getModel());
+                    req.getType(), req.getPrompt(), req.getLyrics(), req.getModel(), req.getTitle());
             return Result.ok(Map.of(
                     "taskId", String.valueOf(task.getId()),
                     "status", task.getStatus()));
@@ -147,6 +147,8 @@ public class MusicController {
         private String lyrics;
         /** 模型 (auto / mureka-7.5 / mureka-o1) */
         private String model;
+        /** AI 生成的歌名（可空，空时降级截取 prompt） */
+        private String title;
     }
 
     @Data
