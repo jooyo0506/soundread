@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @TableName("vip_order")
 public class VipOrder {
 
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /** 系统订单号（全局唯一，雪花ID字符串） */
