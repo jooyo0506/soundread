@@ -65,13 +65,20 @@ public class User {
      * @return true=有效 VIP, false=非 VIP 或已过期
      */
     public boolean isVip() {
-        if (vipLevel == null || vipLevel == 0) {
-            return false;
-        }
-        // 终身 VIP 无需检查过期时间
-        if (vipLevel == 3) {
+        // 优先判断 tierCode（运营端只改 tier_code 时也能正确识别）
+        if (tierCode != null && tierCode.startsWith("vip_")) {
+            if ("vip_lifetime".equals(tierCode))
+                return true;
+            // 有过期时间则校验，没有过期时间则直接认可
+            if (vipExpireTime != null)
+                return vipExpireTime.isAfter(LocalDateTime.now());
             return true;
         }
+        // 兼容旧 vipLevel 逻辑
+        if (vipLevel == null || vipLevel == 0)
+            return false;
+        if (vipLevel == 3)
+            return true;
         return vipExpireTime != null && vipExpireTime.isAfter(LocalDateTime.now());
     }
 }
