@@ -44,9 +44,13 @@ export function useWebSocket(endpoint, options = {}) {
     const isConnected = ref(false)
     const authStore = useAuthStore()
 
-    // 根据当前页面协议选择 ws/wss
+    // 优先取环境变量（线上 www.joyoai.xyz 前端 → 后端 joyoai.xyz 跨域WS）
+    // 本地开发 fallback 到 window.location.host（由 vite proxy 转发）
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}${endpoint}`
+    const wsBase = import.meta.env.VITE_WS_BASE_URL
+    const wsUrl = wsBase
+        ? `${wsBase}${endpoint}`
+        : `${protocol}//${window.location.host}${endpoint}`
 
     let reconnectTimer = null
     let reconnectAttempts = 0

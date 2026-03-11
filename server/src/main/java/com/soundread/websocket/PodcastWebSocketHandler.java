@@ -309,7 +309,7 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
             String token = null;
             for (String param : query.split("&")) {
                 String[] kv = param.split("=", 2);
-                if (kv.length == 2 && "token".equals(kv[0])) {
+                if (kv.length == 2 && ("satoken".equals(kv[0]) || "token".equals(kv[0]))) {
                     token = kv[1];
                     break;
                 }
