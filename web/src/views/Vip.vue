@@ -74,12 +74,12 @@
       <h3 class="text-white font-bold mb-3 text-sm">会员特权</h3>
       <div class="glass-panel rounded-2xl p-5 mb-8">
         <ul class="grid grid-cols-2 gap-y-4 gap-x-2">
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 无限字数合成</li>
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 情感合成/指令</li>
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> AI 双播完整版</li>
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 声音分身</li>
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> WebSocket 流式</li>
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 同声传译/翻译</li>
+          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 无限字数配音</li>
+          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 智能情感语音合成</li>
+          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> AI 双人访谈播客</li>
+          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> AI 音乐一键生成</li>
+          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> AI 工作台全功能解锁</li>
+          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 有声绘本·广播剧创作</li>
           <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 边听边问无限次</li>
           <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 优先客服支持</li>
         </ul>
@@ -93,7 +93,7 @@
           <div class="flex-1 text-xs text-[#FFD60A] font-bold text-center">VIP版</div>
         </div>
         <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
-          <div class="flex-1 text-xs text-gray-300 text-center">每日字数</div>
+          <div class="flex-1 text-xs text-gray-300 text-center">每日配音字数</div>
           <div class="flex-1 text-xs text-gray-500 text-center">100字</div>
           <div class="flex-1 text-xs text-[#FF9500] font-bold text-center">无限</div>
         </div>
@@ -103,17 +103,17 @@
           <div class="flex-1 text-xs text-[#FF9500] font-bold text-center">无限次</div>
         </div>
         <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
-          <div class="flex-1 text-xs text-gray-300 text-center">情感合成</div>
+          <div class="flex-1 text-xs text-gray-300 text-center">情感语音合成</div>
           <div class="flex-1 text-xs text-gray-500 text-center">—</div>
           <div class="flex-1 text-xs text-green-500 text-center"><i class="fas fa-check"></i></div>
         </div>
         <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
-          <div class="flex-1 text-xs text-gray-300 text-center">声音克隆</div>
+          <div class="flex-1 text-xs text-gray-300 text-center">AI 工作台</div>
           <div class="flex-1 text-xs text-gray-500 text-center">—</div>
           <div class="flex-1 text-xs text-green-500 text-center"><i class="fas fa-check"></i></div>
         </div>
         <div class="flex p-3 hover:bg-white/5 transition-colors">
-          <div class="flex-1 text-xs text-gray-300 text-center">流式生成</div>
+          <div class="flex-1 text-xs text-gray-300 text-center">AI 音乐生成</div>
           <div class="flex-1 text-xs text-gray-500 text-center">—</div>
           <div class="flex-1 text-xs text-green-500 text-center"><i class="fas fa-check"></i></div>
         </div>
