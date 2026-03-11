@@ -27,9 +27,18 @@ export const vipApi = {
 
     /**
      * 查询当前会员状态
-     * @returns {Promise<{ vipLevel, expireTime, tierCode }>}
+     * @returns {Promise<{ vip, level, expireTime }>}
      */
     getStatus() {
         return request.get('/vip/status')
+    },
+
+    /**
+     * 轮询订单支付状态（支付宝跳回后使用）
+     * @param {string} orderNo - 系统订单号
+     * @returns {Promise<{ orderNo, status, paid, planName }>}
+     */
+    queryOrderStatus(orderNo) {
+        return request.get(`/vip/order/${orderNo}/status`)
     }
 }

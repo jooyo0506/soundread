@@ -41,6 +41,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                 })).addPathPatterns("/api/**")
                                 .excludePathPatterns("/api/auth/**", "/api/discover/banners", "/api/discover/works",
                                                 "/api/tts/voices", "/api/vip/plans",
+                                                "/api/vip/payment/alipay-notify", // 支付宝回调无 token，必须放行
                                                 "/api/studio/templates");
         }
 

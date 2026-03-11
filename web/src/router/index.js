@@ -84,6 +84,12 @@ const routes = [
         name: 'AiWorkshop',
         component: () => import('../views/AiWorkshop.vue'),
         meta: { requiresAuth: true }
+    },
+    {
+        // 支付宝 return_url 跳回，必须公开（不需要 requiresAuth，有 orderNo 即可查询）
+        path: '/pay-result',
+        name: 'PayResult',
+        component: () => import('../views/PayResult.vue')
     }
 ]
 

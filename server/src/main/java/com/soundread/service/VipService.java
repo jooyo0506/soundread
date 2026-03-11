@@ -1,7 +1,12 @@
 package com.soundread.service;
 
+import com.alipay.api.AlipayApiException;
+import com.alipay.api.AlipayClient;
+import com.alipay.api.internal.util.AlipaySignature;
+import com.alipay.api.request.AlipayTradeWapPayRequest;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.soundread.common.exception.BusinessException;
+import com.soundread.config.AlipayProperties;
 import com.soundread.mapper.UserMapper;
 import com.soundread.mapper.VipOrderMapper;
 import com.soundread.model.dto.VipDto;
@@ -14,8 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * VIP 会员服务
@@ -27,109 +35,206 @@ public class VipService {
 
     private final VipOrderMapper vipOrderMapper;
     private final UserMapper userMapper;
+    private final AlipayClient alipayClient;
+    private final AlipayProperties alipayProps;
 
-    /**
-     * 获取套餐列表
-     */
-    public List<VipDto.PlanResponse> getPlans() {
-        VipDto.PlanResponse month = new VipDto.PlanResponse();
-        month.setPlanId("month");
-        month.setName("月度体验");
-        month.setPrice("¥30");
-        month.setDuration("30天");
-        month.setFeatures(new String[] { "无限字数合成", "情感合成/指令", "AI播客完整版" });
+    // ==================== 套餐配置 ====================
 
-        VipDto.PlanResponse year = new VipDto.PlanResponse();
-        year.setPlanId("year");
-        year.setName("年度 VIP");
-        year.setPrice("¥300");
-        year.setDuration("365天");
-        year.setFeatures(new String[] { "全部月度功能", "专属声音复刻", "WebSocket流式", "同声传译/翻译", "边听边问无限次" });
+    private static final List<VipDto.PlanItem> PLANS = List.of(
+            new VipDto.PlanItem("vip_month", "月度体验", new BigDecimal("30.00"), 30, null),
+            new VipDto.PlanItem("vip_year", "年度 VIP", new BigDecimal("300.00"), 365, new BigDecimal("360.00")),
+            new VipDto.PlanItem("vip_lifetime", "终身 VIP", new BigDecimal("1000.00"), 9999, null));
 
-        VipDto.PlanResponse lifetime = new VipDto.PlanResponse();
-        lifetime.setPlanId("lifetime");
-        lifetime.setName("终身 VIP");
-        lifetime.setPrice("¥1000");
-        lifetime.setDuration("永久有效");
-        lifetime.setFeatures(new String[] { "全部年度功能", "永不过期", "优先客服支持" });
-
-        return List.of(month, year, lifetime);
+    public List<VipDto.PlanItem> getPlans() {
+        return PLANS;
     }
 
-    /**
-     * 创建支付订单
-     */
+    // ==================== 创建订单 + 获取支付宝跳转 URL ====================
+
+    @Transactional(rollbackFor = Exception.class)
     public VipDto.OrderResponse createOrder(Long userId, VipDto.SubscribeRequest req) {
-        BigDecimal amount = switch (req.getPlanId()) {
-            case "month" -> new BigDecimal("30.00");
-            case "year" -> new BigDecimal("300.00");
-            case "lifetime" -> new BigDecimal("1000.00");
-            default -> throw new BusinessException("无效的套餐");
-        };
+        VipDto.PlanItem plan = PLANS.stream()
+                .filter(p -> p.getPlanId().equals(req.getPlanId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("无效的套餐: " + req.getPlanId()));
+
+        // 生成唯一订单号（时间戳 + 随机后缀）
+        String orderNo = "SR" + DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                .format(LocalDateTime.now())
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
 
         VipOrder order = new VipOrder();
+        order.setOrderNo(orderNo);
         order.setUserId(userId);
-        order.setPlanId(req.getPlanId());
-        order.setAmount(amount);
-        order.setPayMethod(req.getPayMethod());
+        order.setPlanId(plan.getPlanId());
+        order.setPlanName(plan.getName());
+        order.setAmount(plan.getPrice());
+        order.setDurationDays(plan.getDurationDays());
         order.setStatus("pending");
-        order.setCreatedAt(LocalDateTime.now());
         vipOrderMapper.insert(order);
 
-        // TODO: 调用微信/支付宝支付 API 获取真实支付链接
+        // 调用支付宝手机网站支付接口
+        String payUrl = buildAlipayWapUrl(order);
+
         VipDto.OrderResponse resp = new VipDto.OrderResponse();
-        resp.setOrderId(String.valueOf(order.getId()));
-        resp.setPayUrl("https://pay.soundread.com/pay?orderId=" + order.getId());
+        resp.setOrderNo(orderNo);
+        resp.setPayUrl(payUrl);
         return resp;
     }
 
     /**
-     * 支付成功回调 — 激活 VIP
+     * 构建支付宝 WAP 支付跳转 URL
      */
-    // 【阿里规范】@Transactional 必须指定 rollbackFor，否则受检异常不会回滚
-    @Transactional(rollbackFor = Exception.class)
-    public void activateVip(Long orderId) {
-        VipOrder order = vipOrderMapper.selectById(orderId);
-        if (order == null || !"pending".equals(order.getStatus())) {
-            return;
+    private String buildAlipayWapUrl(VipOrder order) {
+        AlipayTradeWapPayRequest request = new AlipayTradeWapPayRequest();
+        request.setNotifyUrl(alipayProps.getNotifyUrl());
+        request.setReturnUrl(alipayProps.getReturnUrl());
+
+        request.setBizContent("{" +
+                "\"out_trade_no\":\"" + order.getOrderNo() + "\"," +
+                "\"total_amount\":\"" + order.getAmount() + "\"," +
+                "\"subject\":\"声读 " + order.getPlanName() + "\"," +
+                "\"product_code\":\"QUICK_WAP_WAY\"" +
+                "}");
+
+        try {
+            // pageExecute 返回的是包含表单的 HTML（PC）或重定向 URL（WAP）
+            String form = alipayClient.pageExecute(request).getBody();
+            // WAP 返回的实际上是 302 Location URL，直接返回给前端跳转
+            return form;
+        } catch (AlipayApiException e) {
+            log.error("支付宝 WAP 支付请求失败: orderNo={}", order.getOrderNo(), e);
+            throw new BusinessException("支付发起失败，请稍后重试");
         }
+    }
 
-        order.setStatus("paid");
-        order.setPaidAt(LocalDateTime.now());
+    // ==================== 支付宝异步回调 ====================
 
-        // 计算过期时间
-        LocalDateTime expireAt = switch (order.getPlanId()) {
-            case "month" -> LocalDateTime.now().plusDays(30);
-            case "year" -> LocalDateTime.now().plusDays(365);
-            case "lifetime" -> LocalDateTime.of(2099, 12, 31, 23, 59);
-            default -> LocalDateTime.now().plusDays(30);
-        };
-        order.setExpireAt(expireAt);
-        vipOrderMapper.updateById(order);
+    /**
+     * 处理支付宝异步通知
+     * 必须幂等，同一笔交易可能收到多次通知
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public String handleAlipayNotify(Map<String, String> params) {
+        try {
+            // 1. 验签
+            boolean signOk = AlipaySignature.rsaCheckV1(
+                    params, alipayProps.getPublicKey(), "UTF-8", "RSA2");
+            if (!signOk) {
+                log.warn("支付宝回调签名验证失败: params={}", params);
+                return "fail";
+            }
 
-        // 更新用户 VIP 状态
-        User user = userMapper.selectById(order.getUserId());
-        int vipLevel = switch (order.getPlanId()) {
-            case "month" -> 1;
-            case "year" -> 2;
-            case "lifetime" -> 3;
-            default -> 1;
-        };
-        user.setVipLevel(vipLevel);
-        user.setVipExpireTime(expireAt);
-        userMapper.updateById(user);
+            // 2. 只处理 trade_success 状态
+            String tradeStatus = params.get("trade_status");
+            if (!"TRADE_SUCCESS".equals(tradeStatus) && !"TRADE_FINISHED".equals(tradeStatus)) {
+                return "success"; // 其他状态直接返回 success（告诉支付宝不再重试）
+            }
 
-        log.info("VIP 激活成功: userId={}, plan={}", user.getId(), order.getPlanId());
+            String orderNo = params.get("out_trade_no");
+            String alipayTradeNo = params.get("trade_no");
+
+            // 3. 查订单
+            VipOrder order = vipOrderMapper.selectOne(
+                    new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
+            if (order == null) {
+                log.error("回调订单不存在: orderNo={}", orderNo);
+                return "fail";
+            }
+
+            // 4. 幂等：已支付不重复处理
+            if ("paid".equals(order.getStatus())) {
+                return "success";
+            }
+
+            // 5. 更新订单状态
+            order.setStatus("paid");
+            order.setAlipayTradeNo(alipayTradeNo);
+            order.setPayTime(LocalDateTime.now());
+            order.setNotifyRaw(params.toString());
+            vipOrderMapper.updateById(order);
+
+            // 6. 激活用户 VIP
+            activateUserVip(order);
+
+            log.info("支付宝回调处理成功: orderNo={}, alipayTradeNo={}", orderNo, alipayTradeNo);
+            return "success";
+
+        } catch (Exception e) {
+            log.error("支付宝回调处理异常", e);
+            return "fail";
+        }
     }
 
     /**
-     * 查询会员状态
+     * 激活用户 VIP（更新 User 表）
      */
+    private void activateUserVip(VipOrder order) {
+        User user = userMapper.selectById(order.getUserId());
+        if (user == null)
+            return;
+
+        LocalDateTime expireAt = "vip_lifetime".equals(order.getPlanId())
+                ? LocalDateTime.of(2099, 12, 31, 23, 59)
+                : LocalDateTime.now().plusDays(order.getDurationDays());
+
+        // 已有 VIP 则叠加时间
+        if (user.isVip() && user.getVipExpireTime() != null
+                && user.getVipExpireTime().isAfter(LocalDateTime.now())) {
+            expireAt = user.getVipExpireTime().plusDays(order.getDurationDays());
+        }
+
+        int vipLevel = switch (order.getPlanId()) {
+            case "vip_month" -> 1;
+            case "vip_year" -> 2;
+            case "vip_lifetime" -> 3;
+            default -> 1;
+        };
+
+        // 取高等级（购买年度时不降级已有终身）
+        if (user.getVipLevel() != null && user.getVipLevel() > vipLevel) {
+            vipLevel = user.getVipLevel();
+        }
+
+        // 更新等级策略 tierCode
+        String tierCode = switch (vipLevel) {
+            case 2 -> "vip_year";
+            case 3 -> "vip_lifetime";
+            default -> "vip_month";
+        };
+
+        user.setVipLevel(vipLevel);
+        user.setVipExpireTime(expireAt);
+        user.setTierCode(tierCode);
+        userMapper.updateById(user);
+
+        log.info("VIP 激活: userId={}, tierCode={}, expireAt={}", user.getId(), tierCode, expireAt);
+    }
+
+    // ==================== 订单状态查询 ====================
+
+    public VipDto.OrderStatus getOrderStatus(String orderNo) {
+        VipOrder order = vipOrderMapper.selectOne(
+                new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
+        if (order == null)
+            throw new BusinessException("订单不存在");
+
+        VipDto.OrderStatus s = new VipDto.OrderStatus();
+        s.setOrderNo(order.getOrderNo());
+        s.setStatus(order.getStatus());
+        s.setPaid("paid".equals(order.getStatus()));
+        s.setAmount(order.getAmount());
+        s.setPlanName(order.getPlanName());
+        return s;
+    }
+
+    // ==================== 会员状态 ====================
+
     public VipDto.StatusResponse getStatus(Long userId) {
         User user = userMapper.selectById(userId);
         VipDto.StatusResponse resp = new VipDto.StatusResponse();
         resp.setVip(user.isVip());
-        resp.setLevel(user.getVipLevel());
+        resp.setLevel(user.getVipLevel() != null ? user.getVipLevel() : 0);
         if (user.getVipExpireTime() != null) {
             resp.setExpireTime(user.getVipExpireTime().toString());
             resp.setRemainDays((int) ChronoUnit.DAYS.between(LocalDateTime.now(), user.getVipExpireTime()));

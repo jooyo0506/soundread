@@ -12,28 +12,40 @@ import java.time.LocalDateTime;
 @TableName("vip_order")
 public class VipOrder {
 
-    @TableId(type = IdType.ASSIGN_ID)
+    @TableId(type = IdType.AUTO)
     private Long id;
+
+    /** 系统订单号（全局唯一，雪花ID字符串） */
+    private String orderNo;
 
     private Long userId;
 
-    /** month / year / lifetime */
+    /** vip_month / vip_year / vip_lifetime */
     private String planId;
+
+    /** 套餐名称快照 */
+    private String planName;
 
     private BigDecimal amount;
 
-    /** wechat / alipay */
-    private String payMethod;
+    /** 套餐时长（天，9999=永久） */
+    private Integer durationDays;
 
-    /** pending / paid / cancelled / refunded */
+    /** pending / paid / failed / refunded */
     private String status;
 
-    private String tradeNo;
+    /** 支付宝交易号 */
+    private String alipayTradeNo;
 
-    private LocalDateTime paidAt;
+    /** 支付完成时间 */
+    private LocalDateTime payTime;
 
-    private LocalDateTime expireAt;
+    /** 支付宝原始回调报文（调试用） */
+    private String notifyRaw;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
+
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updatedAt;
 }

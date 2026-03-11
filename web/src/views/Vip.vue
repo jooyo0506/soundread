@@ -195,28 +195,33 @@ const loadPlans = async () => {
 
 const handlePay = async () => {
   if (!authStore.isLoggedIn) {
-    toastStore.show('请先登录及完成实名认证')
+    toastStore.show('请先登录')
     router.replace('/login')
     return
   }
-  
   if (!selectedPlan.value) return toastStore.show('请选择一个会员套餐')
 
   isPaying.value = true
   try {
-      const order = await vipApi.createOrder(selectedPlan.value)
-      // TODO: 对接真实支付（微信/支付宝），当前为模拟支付流程
-      toastStore.show(`支付成功！订单 ${order.orderNo || '待分配'} 已生效，正在加载您的全新特权...`)
-      
-      // 更新 authStore user 状态并在刷新后触发重新请求 profile 和 policy
-      await authStore.fetchUserInfo()
-      router.back()
+    const order = await vipApi.createOrder(selectedPlan.value)
+    // 把 orderNo 存入 sessionStorage，PayResult 页回来轮询用
+    sessionStorage.setItem('pendingOrderNo', order.orderNo)
+
+    // 支付宝 WAP 支付返回的是 HTML 表单，注入 DOM 并自动提交（实现页面跳转）
+    const div = document.createElement('div')
+    div.innerHTML = order.payUrl
+    document.body.appendChild(div)
+    const form = div.querySelector('form')
+    if (form) {
+      form.submit()
+    } else {
+      // 若直接返回 URL
+      window.location.href = order.payUrl
+    }
   } catch(e) {
-      toastStore.show('模拟支付发起失败，请稍后重试: ' + e.message)
-      // 若是测试环境也可以兜底成功
-      authStore.user.vip = true
+    toastStore.show('支付发起失败：' + (e.message || '请稍后重试'))
   } finally {
-      isPaying.value = false
+    isPaying.value = false
   }
 }
 

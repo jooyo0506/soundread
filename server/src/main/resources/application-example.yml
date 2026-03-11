@@ -123,3 +123,14 @@ quota:
 logging:
   level:
     com.soundread: DEBUG
+
+# 支付宝支付配置
+# 获取方式：支付宝开放平台 → 开发设置 → 生成 RSA2 密钥对
+alipay:
+  app-id: ${ALIPAY_APP_ID:your-alipay-app-id}
+  private-key: ${ALIPAY_PRIVATE_KEY:your-rsa2-private-key}    # 应用私钥（PKCS8 格式）
+  public-key: ${ALIPAY_PUBLIC_KEY:your-alipay-public-key}     # 支付宝公钥（从控制台获取）
+  gateway-url: https://openapi.alipay.com/gateway.do          # 正式环境
+  # gateway-url: https://openapi-sandbox.dl.alipaydev.com/gateway.do  # 沙箱环境（测试用）
+  notify-url: https://joyoai.xyz/api/vip/payment/alipay-notify
+  return-url: https://www.joyoai.xyz/#/pay-result
