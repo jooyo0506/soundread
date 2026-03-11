@@ -1,4 +1,4 @@
-﻿package com.soundread.controller;
+package com.soundread.controller;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -39,7 +39,7 @@ import java.util.Map;
  * </ol>
  *
  * <h3>对比 ConcurrentHashMap 方案</h3>
- * 
+ *
  * <pre>
  * ConcurrentHashMap：无上限、无过期、OOM 风险
  * Caffeine：有容量上限 + TTL 过期 + LRU 淘汰 + 统计监控
@@ -58,7 +58,7 @@ public class AgentController {
     /**
      * 支持 Tool Calling 的供应商优先级
      * <p>
-     * 注意：minmax 使用自容格式（非 OpenAI 标准），LangChain4j 无法解析，会导致原始 Tool 标记透出到前端。
+     * 注意：minimax 使用自有格式（非 OpenAI 标准），LangChain4j 无法解析，会导致原始 Tool 标记透出到前端。
      * deepseek 有 think 标签泄漏问题（已在 cleanReply 过滤），优先级最低。
      * </p>
      */
@@ -83,9 +83,9 @@ public class AgentController {
     public void init() {
         try {
             this.agent = buildAgent();
-            log.info("[AgentController] ✅ Agent 初始化完成");
+            log.info("[AgentController] Agent 初始化完成");
         } catch (Exception e) {
-            log.warn("[AgentController] ⚠️ Agent 初始化失败（模型未配置？）: {}", e.getMessage());
+            log.warn("[AgentController] Agent 初始化失败（模型未配置？）: {}", e.getMessage());
         }
     }
 
@@ -107,21 +107,21 @@ public class AgentController {
             message = "[用户当前在「" + scene + "」创作场景中] " + message;
         }
 
-        log.info("[AgentController] 📨 用户输入：{}", message);
+        log.info("[AgentController] 用户输入：{}", message);
 
         try {
-            // ★ 在 HTTP 请求线程中提前获取用户（Sa-Token 需要 Request 上下文）
+            // 在 HTTP 请求线程中提前获取用户（Sa-Token 需要 Request 上下文）
             User user = authService.getCurrentUser();
             String memoryId = user.getId().toString();
 
-            // ★ 设置 ThreadLocal，让 Tool 方法能获取用户（不依赖 Sa-Token）
+            // 设置 ThreadLocal，让 Tool 方法能获取用户（不依赖 Sa-Token）
             SoundReadTools.setCurrentUser(user);
 
             String reply = agent.chat(memoryId, message);
-            // 清洗模型返回内容中的内部死标记（DeepSeek think + MiniMax tool_call 等）
+            // 清洗模型返回内容中的内部标记（DeepSeek think + MiniMax tool_call 等）
             reply = cleanReply(reply);
 
-            log.info("[AgentController] 🤖 Agent 回复长度: {}", reply.length());
+            log.info("[AgentController] Agent 回复长度: {}", reply.length());
 
             return Result.ok(Map.of("reply", reply));
 
@@ -129,7 +129,7 @@ public class AgentController {
             log.error("[AgentController] Agent 调用失败", e);
             return Result.fail("Agent 调用失败: " + e.getMessage());
         } finally {
-            // ★ 清理 ThreadLocal，防止内存泄漏
+            // 清理 ThreadLocal，防止内存泄漏
             SoundReadTools.clearCurrentUser();
         }
     }
@@ -142,7 +142,7 @@ public class AgentController {
         if (token != null) {
             String memoryId = String.valueOf(token.hashCode());
             memoryCache.invalidate(memoryId);
-            log.info("[AgentController] 🗑️ 已清空用户 {} 的对话记忆", memoryId);
+            log.info("[AgentController] 已清空用户 {} 的对话记忆", memoryId);
         }
         return Result.ok("对话已重置");
     }
@@ -220,10 +220,10 @@ public class AgentController {
      * 清洗模型回复中的内部标记，防止透出到前端
      *
      * <ul>
-     * <li>DeepSeek think 标签: {@code <think>...</think>}</li>
-     * <li>MiniMax Tool Call 宽松格式:
-     * {@code function| tool_sep |...| tool_calls_end |}</li>
-     * <li>MiniMax Tool Call 紧凑格式: {@code <|tool_sep|>} {@code <|tool_calls_end|>}
+     * <li>DeepSeek think 标签: &lt;think&gt;...&lt;/think&gt;</li>
+     * <li>MiniMax Tool Call 宽松格式: function&lt; | tool_sep | &gt;...&lt; |
+     * tool_calls_end | &gt;</li>
+     * <li>MiniMax Tool Call 紧凑格式: &lt;|tool_sep|&gt; &lt;|tool_calls_end|&gt;
      * 等</li>
      * </ul>
      */
