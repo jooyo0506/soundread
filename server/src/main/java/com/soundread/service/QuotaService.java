@@ -91,20 +91,30 @@ public class QuotaService {
     }
 
     /**
-     * 检查并扣减 AI 播客每日生成配额
+     * 仅检查 AI 播客每日配额（不扣减）
+     * 在生成开始时调用，超额时立即拒绝
      */
-    public void checkAndDeductPodcastQuota(User user) {
+    public void checkPodcastQuota(User user) {
         int limit = getQuotaLimit(user, "podcastDailyCount");
-        if (limit == -1) {
-            return; // 无限额
-        }
-
-        String key = quotaKey(user.getId(), "podcast");
-        long used = increment(key, 1);
-        if (used > limit) {
+        if (limit == -1)
+            return;
+        long used = getDailyUsage(user.getId(), "podcast");
+        if (used >= limit) {
             throw new QuotaExceededException(
                     String.format("您的等级每日 AI 播客配额 (%d 次) 已用完，请明天再来 🎙️", limit));
         }
+    }
+
+    /**
+     * 扣减 AI 播客配额（仅在生成成功完成后调用）
+     */
+    public void deductPodcastQuota(User user) {
+        int limit = getQuotaLimit(user, "podcastDailyCount");
+        if (limit == -1)
+            return;
+        String key = quotaKey(user.getId(), "podcast");
+        increment(key, 1);
+        log.info("[Quota] 播客配额已扣减: userId={} 限额={}", user.getId(), limit);
     }
 
     /**

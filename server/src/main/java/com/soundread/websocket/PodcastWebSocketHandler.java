@@ -76,11 +76,11 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // ===== 配额检查 =====
+        // ===== 配额检查（仅检查，不扣减；扣减在生成成功后执行）=====
         User user = resolveUser(session);
         if (user != null) {
             try {
-                quotaService.checkAndDeductPodcastQuota(user);
+                quotaService.checkPodcastQuota(user);
             } catch (QuotaExceededException e) {
                 sendError(session, e.getMessage());
                 return;
@@ -178,6 +178,14 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
 
                     @Override
                     public void onComplete(String audioUrl) {
+                        // ===== 生成成功 → 才扣减配额 =====
+                        if (currentUser != null) {
+                            try {
+                                quotaService.deductPodcastQuota(currentUser);
+                            } catch (Exception e) {
+                                log.warn("[Podcast WS] 配额扣减失败: {}", e.getMessage());
+                            }
+                        }
                         // ===== 持久化到 R2 和数据库 =====
                         String permanentUrl = persistPodcast(currentUser, audioUrl, inputText,
                                 finalVoiceA, roundTexts, (int) Math.round(totalDuration[0]));
