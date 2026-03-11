@@ -42,11 +42,15 @@ public class VipController {
         return Result.ok(vipService.getPlans());
     }
 
-    /** 创建订单，返回支付宝 WAP 跳转 URL */
+    /** 创建订单，根据设备自动选择 PC/WAP 支付 */
     @PostMapping("/orders")
-    public Result<VipDto.OrderResponse> createOrder(@Valid @RequestBody VipDto.SubscribeRequest req) {
+    public Result<VipDto.OrderResponse> createOrder(
+            @Valid @RequestBody VipDto.SubscribeRequest req,
+            HttpServletRequest httpRequest) {
         long userId = StpUtil.getLoginIdAsLong();
-        return Result.ok(vipService.createOrder(userId, req));
+        String ua = httpRequest.getHeader("User-Agent");
+        boolean isMobile = ua != null && ua.matches(".*(Android|iPhone|iPad|Mobile|MicroMessenger).*");
+        return Result.ok(vipService.createOrder(userId, req, isMobile));
     }
 
     /**

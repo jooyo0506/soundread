@@ -3,6 +3,7 @@ package com.soundread.service;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.internal.util.AlipaySignature;
+import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.alipay.api.request.AlipayTradeWapPayRequest;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.soundread.common.exception.BusinessException;
@@ -52,7 +53,7 @@ public class VipService {
     // ==================== 创建订单 + 获取支付宝跳转 URL ====================
 
     @Transactional(rollbackFor = Exception.class)
-    public VipDto.OrderResponse createOrder(Long userId, VipDto.SubscribeRequest req) {
+    public VipDto.OrderResponse createOrder(Long userId, VipDto.SubscribeRequest req, boolean isMobile) {
         VipDto.PlanItem plan = PLANS.stream()
                 .filter(p -> p.getPlanId().equals(req.getPlanId()))
                 .findFirst()
@@ -73,8 +74,8 @@ public class VipService {
         order.setStatus("pending");
         vipOrderMapper.insert(order);
 
-        // 调用支付宝手机网站支付接口
-        String payUrl = buildAlipayWapUrl(order);
+        // 调用支付宝接口（PC/WAP 自动适配）
+        String payUrl = buildAlipayPayUrl(order, isMobile);
 
         VipDto.OrderResponse resp = new VipDto.OrderResponse();
         resp.setOrderNo(orderNo);
@@ -83,27 +84,33 @@ public class VipService {
     }
 
     /**
-     * 构建支付宝 WAP 支付跳转 URL
+     * 构建支付宝支付跳转 URL
+     * mobile=true → WAP 手机网站支付
+     * mobile=false → Page PC 网页支付
      */
-    private String buildAlipayWapUrl(VipOrder order) {
-        AlipayTradeWapPayRequest request = new AlipayTradeWapPayRequest();
-        request.setNotifyUrl(alipayProps.getNotifyUrl());
-        request.setReturnUrl(alipayProps.getReturnUrl());
-
-        request.setBizContent("{" +
+    private String buildAlipayPayUrl(VipOrder order, boolean isMobile) {
+        String bizContent = "{" +
                 "\"out_trade_no\":\"" + order.getOrderNo() + "\"," +
                 "\"total_amount\":\"" + order.getAmount() + "\"," +
                 "\"subject\":\"声读 " + order.getPlanName() + "\"," +
-                "\"product_code\":\"QUICK_WAP_WAY\"" +
-                "}");
-
+                "\"product_code\":\"" + (isMobile ? "QUICK_WAP_WAY" : "FAST_INSTANT_TRADE_PAY") + "\"" +
+                "}";
         try {
-            // pageExecute 返回的是包含表单的 HTML（PC）或重定向 URL（WAP）
-            String form = alipayClient.pageExecute(request).getBody();
-            // WAP 返回的实际上是 302 Location URL，直接返回给前端跳转
-            return form;
+            if (isMobile) {
+                AlipayTradeWapPayRequest req = new AlipayTradeWapPayRequest();
+                req.setNotifyUrl(alipayProps.getNotifyUrl());
+                req.setReturnUrl(alipayProps.getReturnUrl());
+                req.setBizContent(bizContent);
+                return alipayClient.pageExecute(req).getBody();
+            } else {
+                AlipayTradePagePayRequest req = new AlipayTradePagePayRequest();
+                req.setNotifyUrl(alipayProps.getNotifyUrl());
+                req.setReturnUrl(alipayProps.getReturnUrl());
+                req.setBizContent(bizContent);
+                return alipayClient.pageExecute(req).getBody();
+            }
         } catch (AlipayApiException e) {
-            log.error("支付宝 WAP 支付请求失败: orderNo={}", order.getOrderNo(), e);
+            log.error("支付宝支付请求失败: orderNo={}", order.getOrderNo(), e);
             throw new BusinessException("支付发起失败，请稍后重试");
         }
     }
