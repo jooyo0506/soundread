@@ -348,7 +348,8 @@ const getSpeakerInfo = (speakerVoiceId) => {
 
 // ==================== WebSocket ====================
 
-const podcastWs = useWebSocket('/ws/podcast', {
+const podcastWs = useWebSocket('/podcast', {
+
   onOpen: () => {
     isGenerating.value = true
     generationDone.value = false
