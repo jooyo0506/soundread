@@ -114,10 +114,10 @@ pipeline {
                     echo $! > app.pid
                     echo "新进程 PID: $(cat app.pid)"
 
-                    # ── Step6: 健康检查（最多等 60 秒启动完成）──
+                    # ── Step6: 健康检查（最多等 60 秒，扫描启动关键词）──
                     echo "等待服务启动..."
                     for i in $(seq 1 60); do
-                        if curl -sf http://localhost:$APP_PORT/api/health > /dev/null 2>&1; then
+                        if grep -q "Started SoundReadApplication" $APP_DIR/app.log 2>/dev/null; then
                             echo "✅ 服务已就绪（${i}s）"
                             exit 0
                         fi
