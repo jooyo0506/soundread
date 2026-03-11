@@ -16,22 +16,16 @@ public class AuthDto {
         private String password;
     }
 
-    @Data
-    public static class SmsLoginRequest {
-        @NotBlank(message = "手机号不能为空")
-        private String phone;
-        @NotBlank(message = "验证码不能为空")
-        private String code;
-        /** 新用户注册时必填 */
-        private String password;
-        /** 新用户注册时必填 */
-        private String confirmPassword;
-    }
-
+    /**
+     * 邀请码注册请求
+     * 替代原短信验证码注册方案
+     */
     @Data
     public static class RegisterRequest {
         @NotBlank(message = "手机号不能为空")
         private String phone;
+        @NotBlank(message = "邀请码不能为空")
+        private String inviteCode;
         @NotBlank(message = "密码不能为空")
         private String password;
         @NotBlank(message = "确认密码不能为空")

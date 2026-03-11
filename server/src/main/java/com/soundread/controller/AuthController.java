@@ -1,8 +1,10 @@
 package com.soundread.controller;
 
 import com.soundread.common.Result;
+import com.soundread.mapper.InviteCodeMapper;
 import com.soundread.model.dto.AuthDto;
 import com.soundread.model.dto.TierPolicyDto;
+import com.soundread.model.entity.InviteCode;
 import com.soundread.model.entity.User;
 import com.soundread.service.AuthService;
 import com.soundread.service.QuotaService;
@@ -11,8 +13,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 认证 Controller
@@ -25,26 +30,60 @@ public class AuthController {
         private final AuthService authService;
         private final QuotaService quotaService;
         private final TierPolicyService tierPolicyService;
+        private final InviteCodeMapper inviteCodeMapper;
 
         @PostMapping("/login")
         public Result<AuthDto.LoginResponse> login(@Valid @RequestBody AuthDto.LoginRequest req) {
                 return Result.ok(authService.login(req));
         }
 
-        @PostMapping("/sms-code")
-        public Result<Void> sendSmsCode(@RequestParam String phone) {
-                authService.sendSmsCode(phone);
-                return Result.ok();
-        }
-
-        @PostMapping("/sms-login")
-        public Result<AuthDto.LoginResponse> smsLogin(@Valid @RequestBody AuthDto.SmsLoginRequest req) {
-                return Result.ok(authService.smsLogin(req));
-        }
-
+        /** 邀请码注册 */
         @PostMapping("/register")
         public Result<AuthDto.LoginResponse> register(@Valid @RequestBody AuthDto.RegisterRequest req) {
                 return Result.ok(authService.register(req));
+        }
+
+        // ==================== Admin 邀请码管理 ====================
+
+        /**
+         * 生成邀请码（仅 admin 可调）
+         * 示例: POST /api/auth/admin/invite-code
+         * Body: {"maxUses": 100, "remark": "早鸟渠道A", "expiredAt": "2025-12-31T23:59:59"}
+         */
+        @PostMapping("/admin/invite-code")
+        public Result<InviteCode> createInviteCode(@RequestBody Map<String, Object> body) {
+                User me = authService.getCurrentUser();
+                if (!"admin".equals(me.getRole())) {
+                        return Result.fail("无权限");
+                }
+
+                InviteCode code = new InviteCode();
+                // 生成 8 位大写字母+数字的邀请码
+                code.setCode(UUID.randomUUID().toString()
+                                .replace("-", "").substring(0, 8).toUpperCase());
+                code.setMaxUses(body.containsKey("maxUses")
+                                ? Integer.parseInt(body.get("maxUses").toString())
+                                : 100);
+                code.setUsedCount(0);
+                code.setRemark(body.containsKey("remark")
+                                ? body.get("remark").toString()
+                                : null);
+                code.setCreatedAt(LocalDateTime.now());
+                if (body.containsKey("expiredAt") && body.get("expiredAt") != null) {
+                        code.setExpiredAt(LocalDateTime.parse(body.get("expiredAt").toString()));
+                }
+                inviteCodeMapper.insert(code);
+                return Result.ok(code);
+        }
+
+        /** 查询所有邀请码（仅 admin） */
+        @GetMapping("/admin/invite-codes")
+        public Result<List<InviteCode>> listInviteCodes() {
+                User me = authService.getCurrentUser();
+                if (!"admin".equals(me.getRole())) {
+                        return Result.fail("无权限");
+                }
+                return Result.ok(inviteCodeMapper.selectList(null));
         }
 
         @GetMapping("/me")

@@ -2,16 +2,20 @@ package com.soundread.service;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.soundread.common.exception.BusinessException;
+import com.soundread.mapper.InviteCodeMapper;
 import com.soundread.mapper.UserMapper;
 import com.soundread.model.dto.AuthDto;
 import com.soundread.model.dto.TierPolicyDto;
+import com.soundread.model.entity.InviteCode;
 import com.soundread.model.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
@@ -34,8 +38,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final StringRedisTemplate redisTemplate;
     private final TierPolicyService tierPolicyService;
-
-    private static final String SMS_CODE_PREFIX = "sms:code:";
+    private final InviteCodeMapper inviteCodeMapper;
 
     /** 用户信息缓存 key 前缀：cache:user:{userId} */
     private static final String USER_CACHE_PREFIX = "cache:user:";
@@ -59,81 +62,56 @@ public class AuthService {
     }
 
     /**
-     * 验证码登录/注册
-     * - 已有用户: 验证码通过后直接登录
-     * - 新用户: 验证码通过后需提供密码 + 确认密码完成注册
+     * 邀请码模式注册
+     *
+     * <p>
+     * 楼替原短信验证码注册（成本高）。
+     * 逐步：校验邀请码 → 意向部底量平务 → 创建用户 → 登录
+     * </p>
      */
-    public AuthDto.LoginResponse smsLogin(AuthDto.SmsLoginRequest req) {
-        String cachedCode = redisTemplate.opsForValue().get(SMS_CODE_PREFIX + req.getPhone());
-        if (cachedCode == null || !cachedCode.equals(req.getCode())) {
-            throw new BusinessException("验证码错误或已过期");
-        }
-        redisTemplate.delete(SMS_CODE_PREFIX + req.getPhone());
-
-        User user = userMapper.selectOne(
-                new LambdaQueryWrapper<User>().eq(User::getPhone, req.getPhone()));
-        if (user == null) {
-            // 新用户注册：必须提供密码和确认密码
-            if (req.getPassword() == null || req.getPassword().isBlank()) {
-                throw new BusinessException("请设置密码");
-            }
-            if (req.getConfirmPassword() == null || req.getConfirmPassword().isBlank()) {
-                throw new BusinessException("请确认密码");
-            }
-            if (!req.getPassword().equals(req.getConfirmPassword())) {
-                throw new BusinessException("两次输入的密码不一致");
-            }
-
-            user = new User();
-            user.setPhone(req.getPhone());
-            user.setPasswordHash(DigestUtils.sha256Hex(req.getPassword()));
-            user.setNickname("声读用户" + req.getPhone().substring(7));
-            user.setVipLevel(0);
-            user.setTierCode("user"); // 新用户默认等级
-            user.setRole("user"); // 默认角色
-            user.setCreatedAt(LocalDateTime.now());
-            userMapper.insert(user);
-            log.info("新用户注册: phone={}", req.getPhone());
-        }
-        return doLogin(user);
-    }
-
-    /**
-     * 注册
-     */
+    @Transactional(rollbackFor = Exception.class)
     public AuthDto.LoginResponse register(AuthDto.RegisterRequest req) {
         if (!req.getPassword().equals(req.getConfirmPassword())) {
             throw new BusinessException("两次输入的密码不一致");
         }
 
+        // 1. 查 邀请码（大小写不敏感）
+        String code = req.getInviteCode().trim().toUpperCase();
+        InviteCode inviteCode = inviteCodeMapper.selectOne(
+                new LambdaQueryWrapper<InviteCode>().eq(InviteCode::getCode, code));
+
+        if (inviteCode == null || !inviteCode.isAvailable()) {
+            throw new BusinessException("邀请码无效或已达到使用上限");
+        }
+
+        // 2. 检查手机号是否已存在
         Long count = userMapper.selectCount(
                 new LambdaQueryWrapper<User>().eq(User::getPhone, req.getPhone()));
         if (count > 0) {
-            throw new BusinessException("该手机号已注册");
+            throw new BusinessException("该手机号已注册，请直接登录");
         }
 
+        // 3. 邀请码使用次数 +1（CAS 局部增）
+        inviteCodeMapper.update(null,
+                new LambdaUpdateWrapper<InviteCode>()
+                        .eq(InviteCode::getId, inviteCode.getId())
+                        .setSql("used_count = used_count + 1"));
+
+        // 4. 创建用户
         User user = new User();
         user.setPhone(req.getPhone());
         user.setPasswordHash(DigestUtils.sha256Hex(req.getPassword()));
-        user.setNickname(req.getNickname() != null ? req.getNickname() : "声读用户");
+        user.setNickname(req.getNickname() != null && !req.getNickname().isBlank()
+                ? req.getNickname()
+                : "声读用户");
         user.setVipLevel(0);
         user.setTierCode("user");
         user.setRole("user");
         user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
+        log.info("邀请码注册成功: phone={}, code={}", req.getPhone(), code);
         return doLogin(user);
-    }
-
-    /**
-     * 发送短信验证码 (模拟)
-     */
-    public void sendSmsCode(String phone) {
-        // String code = String.valueOf((int) (Math.random() * 9000) + 1000);
-        String code = "123456";// 自测
-        redisTemplate.opsForValue().set(SMS_CODE_PREFIX + phone, code, 5, TimeUnit.MINUTES);
-        log.info("短信验证码发送: {} -> {}", phone, code);
-        // TODO: 接入真实短信服务 (阿里云/腾讯云)
     }
 
     /**
