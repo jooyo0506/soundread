@@ -1,4 +1,4 @@
-package com.soundread.controller;
+﻿package com.soundread.controller;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -57,10 +57,12 @@ public class AgentController {
 
     /**
      * 支持 Tool Calling 的供应商优先级
-     * qwen(Kimi-K2.5) 响应速度快且支持 Tool Calling，优先使用。
-     * minimax/deepseek 作为降级兜底。
+     * <p>
+     * 注意：minmax 使用自容格式（非 OpenAI 标准），LangChain4j 无法解析，会导致原始 Tool 标记透出到前端。
+     * deepseek 有 think 标签泄漏问题（已在 cleanReply 过滤），优先级最低。
+     * </p>
      */
-    private static final String[] TOOL_CALLING_PROVIDERS = { "qwen", "minimax", "deepseek" };
+    private static final String[] TOOL_CALLING_PROVIDERS = { "qwen", "deepseek" };
 
     /** 全局唯一的 Agent 实例 */
     private SmartAssistant agent;
@@ -116,6 +118,8 @@ public class AgentController {
             SoundReadTools.setCurrentUser(user);
 
             String reply = agent.chat(memoryId, message);
+            // 清洗模型返回内容中的内部死标记（DeepSeek think + MiniMax tool_call 等）
+            reply = cleanReply(reply);
 
             log.info("[AgentController] 🤖 Agent 回复长度: {}", reply.length());
 
@@ -210,5 +214,31 @@ public class AgentController {
                 .tools(soundReadTools)
                 .chatMemoryProvider(memoryProvider)
                 .build();
+    }
+
+    /**
+     * 清洗模型回复中的内部标记，防止透出到前端
+     *
+     * <ul>
+     * <li>DeepSeek think 标签: {@code <think>...</think>}</li>
+     * <li>MiniMax Tool Call 宽松格式:
+     * {@code function| tool_sep |...| tool_calls_end |}</li>
+     * <li>MiniMax Tool Call 紧凑格式: {@code <|tool_sep|>} {@code <|tool_calls_end|>}
+     * 等</li>
+     * </ul>
+     */
+    private static String cleanReply(String reply) {
+        if (reply == null || reply.isBlank())
+            return reply;
+        // 1. DeepSeek: 移除 <think>...</think>
+        reply = reply.replaceAll("(?s)<think>.*?</think>", "");
+        // 2. MiniMax 宽松格式：匹配 function< | tool_sep | >...到 < | tool_calls_end | >
+        reply = reply.replaceAll(
+                "(?s).{0,5}function<\\s*\\|\\s*tool_sep\\s*\\|\\s*>.*?<\\s*\\|\\s*tool_calls_end\\s*\\|\\s*>", "");
+        // 3. MiniMax 紧凑格式 <|xxx|>
+        reply = reply.replaceAll("<\\|[^|]+\\|>", "");
+        // 4. 其他已知标记
+        reply = reply.replaceAll("(?s)\\[TOOL_CALLS].*?\\[/TOOL_CALLS]", "");
+        return reply.strip();
     }
 }
