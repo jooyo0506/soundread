@@ -5,6 +5,9 @@ import com.soundread.common.RequireFeature;
 import com.soundread.model.entity.CreativeTemplate;
 import com.soundread.model.entity.StudioProject;
 import com.soundread.model.entity.StudioSection;
+import com.soundread.model.entity.User;
+import com.soundread.service.AuthService;
+import com.soundread.service.QuotaService;
 import com.soundread.service.ScriptParser;
 import com.soundread.service.StudioService;
 import com.soundread.adapter.R2StorageAdapter;
@@ -36,6 +39,8 @@ import java.util.Map;
 public class StudioController {
 
     private final StudioService studioService;
+    private final AuthService authService;
+    private final QuotaService quotaService;
 
     private static final long SSE_TIMEOUT_MS = 5 * 60 * 1000L;
 
@@ -162,6 +167,10 @@ public class StudioController {
     public SseEmitter generateContent(@PathVariable Long id, @RequestBody GenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         try {
+            // 配额检查：每次 AI 创作生成均消耗一次工作台次数
+            User user = authService.getCurrentUser();
+            quotaService.checkAndDeductAiScriptQuota(user);
+
             if (req.getChapterIndex() != null) {
                 // 结构化内容生成：后端构建用户消息
                 studioService.generateContentFromOutline(id, req.getChapterIndex(),
@@ -186,6 +195,10 @@ public class StudioController {
     public SseEmitter generateDrama(@PathVariable Long id, @RequestBody DramaGenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         try {
+            // 配额检查：广播剧属于工作台内容生成，消耗 ai_script 次数
+            User user = authService.getCurrentUser();
+            quotaService.checkAndDeductAiScriptQuota(user);
+
             studioService.generateDrama(id, req.getDialogueMode(), req.getGenre(),
                     req.getGenreTips(), req.getCharacters(), req.getInspiration(), emitter);
         } catch (Exception e) {
