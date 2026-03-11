@@ -1,20 +1,25 @@
 -- ============================================================
--- V10: VIP 配额改革 — 从无限(-1)改为 10 倍免费版的具体数字
--- 免费版基线: tts_daily_chars=100, ask_daily_count=3, ai_script_daily_count=3
+-- V10: VIP 配额方案（倍数制，取代无限制）
+-- 配额设计原则：
+--   tts_v2_daily_chars   = 统一覆盖所有情感合成入口（广播剧/有声绘本/情感电台等 Studio 合成 + 普通配音页）
+--   ai_script_daily_count = AI 工作台创作次数（除小说外：广播剧/有声绘本/电台/讲解/文案/新闻）
+--   novel_daily_chars     = 小说正文生成字数（独立计量，消耗最高）
+--   podcast_daily_count  = AI 双人播客（独立计量，双倍TTS消耗）
+--   music_daily_count    = AI 音乐生成（独立计量）
 -- ============================================================
 
--- VIP 通用配额 JSON（月/年/终身共用同一配额数字，差异体现在有效期）
+-- VIP 通用配额（月/年/终身有效期不同，配额数字相同）
 SET @vip_quota = JSON_OBJECT(
-    'tts_daily_chars',       2000,   -- 免费版 100字 × 20倍
-    'tts_v2_daily_chars',    2000,   -- VIP 专属情感语音，2000字/天
-    'ask_daily_count',       30,     -- 免费版 3次 × 10倍
-    'ai_script_daily_count', 50,     -- AI 工作台创作次数
-    'podcast_daily_count',   10,     -- AI 双人播客，VIP 专属
-    'music_daily_count',     10,     -- AI 音乐生成，VIP 专属
-    'novel_daily_chars',     10000,  -- 小说创作字数，VIP 专属
-    'novel_max_projects',    20,     -- 小说项目上限
-    'storage_max_mb',        500,    -- 免费版 50MB × 10倍
-    'max_projects',          50,     -- 免费版 5个 × 10倍
+    'tts_daily_chars',       2000,   -- TTS 1.0 基础配音，免费版 100字 × 20倍
+    'tts_v2_daily_chars',    3000,   -- 情感语音合成（覆盖所有 Studio TTS + 配音页），VIP 专属
+    'ask_daily_count',       -1,     -- 边听边问已从产品下线，字段保留不封印
+    'ai_script_daily_count', 30,     -- AI 工作台创作（广播剧/绘本/电台/讲解/文案/新闻），免费版 3次 × 10倍
+    'podcast_daily_count',   5,      -- AI 双人播客（独立配额，双倍TTS成本）
+    'music_daily_count',     10,     -- AI 音乐生成
+    'novel_daily_chars',     5000,   -- 小说正文字数（独立配额，最高消耗）
+    'novel_max_projects',    20,     -- 小说项目数上限
+    'storage_max_mb',        500,    -- 存储空间，免费版 50MB × 10倍
+    'max_projects',          50,     -- 项目总数上限，免费版 5个 × 10倍
     'data_retention_days',   -1      -- 永久保存
 );
 

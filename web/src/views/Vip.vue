@@ -80,7 +80,6 @@
           <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> AI 音乐一键生成</li>
           <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> AI 工作台全功能解锁</li>
           <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 有声绘本·广播剧创作</li>
-          <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 边听边问 30 次/天</li>
           <li class="flex items-center gap-2 text-sm text-gray-200"><i class="fas fa-check text-green-500 text-xs"></i> 优先客服支持</li>
         </ul>
       </div>
@@ -98,19 +97,19 @@
           <div class="flex-1 text-xs text-[#FF9500] font-bold text-center">2000字</div>
         </div>
         <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
-          <div class="flex-1 text-xs text-gray-300 text-center">边听边问</div>
-          <div class="flex-1 text-xs text-gray-500 text-center">3次/天</div>
-          <div class="flex-1 text-xs text-[#FF9500] font-bold text-center">30次/天</div>
-        </div>
-        <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
           <div class="flex-1 text-xs text-gray-300 text-center">情感语音合成</div>
           <div class="flex-1 text-xs text-gray-500 text-center">—</div>
-          <div class="flex-1 text-xs text-green-500 font-bold text-center">2000字/天</div>
+          <div class="flex-1 text-xs text-green-500 font-bold text-center">3000字/天</div>
         </div>
         <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
           <div class="flex-1 text-xs text-gray-300 text-center">AI 工作台</div>
           <div class="flex-1 text-xs text-gray-500 text-center">—</div>
-          <div class="flex-1 text-xs text-green-500 font-bold text-center">50次/天</div>
+          <div class="flex-1 text-xs text-green-500 font-bold text-center">30次/天</div>
+        </div>
+        <div class="flex border-b border-white/5 p-3 hover:bg-white/5 transition-colors">
+          <div class="flex-1 text-xs text-gray-300 text-center">AI 双人播客</div>
+          <div class="flex-1 text-xs text-gray-500 text-center">—</div>
+          <div class="flex-1 text-xs text-green-500 font-bold text-center">5次/天</div>
         </div>
         <div class="flex p-3 hover:bg-white/5 transition-colors">
           <div class="flex-1 text-xs text-gray-300 text-center">AI 音乐生成</div>
