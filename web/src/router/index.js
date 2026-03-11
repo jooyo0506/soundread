@@ -102,14 +102,20 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
 
-    // 1. 如果有 token 但还没用户信息，尝试拉取（后端未启动时不阻断导航）
+    // 1. 首次进入：token 存在但 user 未加载 → 阻塞等待（必须知道身份才能判断权限）
     if (authStore.token && !authStore.user) {
         try {
             await authStore.fetchUserInfo()
         } catch (e) {
-            // 拉取失败（后端未启动/token 过期），清除无效 token
+            // token 失效 / 后端未启动 → 清除无效 token
             authStore.clearToken()
         }
+    }
+    // 2. 已有 user → 后台静默刷新 policy（stale-while-revalidate）
+    //    不阻塞导航，用户立即看到页面；policy 在下次导航前已更新
+    //    企业级做法：Apollo/Nacos 长连接推送；本项目用轻量级 /me 轮询代替
+    else if (authStore.token && authStore.user) {
+        authStore.fetchUserInfo().catch(() => { })
     }
 
     if (to.meta.requiresAuth && !authStore.isLoggedIn) {
@@ -119,5 +125,6 @@ router.beforeEach(async (to, from, next) => {
 
     next()
 })
+
 
 export default router
