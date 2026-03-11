@@ -23,8 +23,8 @@ Nginx (joyoai.xyz:80)
   └── /ws/*   → WebSocket (localhost:9090)
 
 Spring Boot (9090)
-  ├── MySQL  → 101.32.128.2:3306   ← 跨机房访问，约 2-5ms RTT/次
-  └── Redis  → 139.199.223.201:6379 ← 另一台服务器，约 2-5ms RTT/次
+  ├── MySQL  → 127.0.0.1:3306   ← 本机访问，约 0.1ms RTT/次 (迁移广州后优化)
+  └── Redis  → 127.0.0.1:6379 ← 本机访问，约 0.1ms RTT/次
 ```
 
 ### 1.2 已识别瓶颈（按严重程度）
@@ -51,7 +51,7 @@ Spring Boot (9090)
 ```yaml
 spring:
   datasource:
-    url: jdbc:mysql://101.32.128.2:3306/sound_read?useUnicode=true
+    url: jdbc:mysql://127.0.0.1:3306/sound_read?useUnicode=true
          &characterEncoding=utf8
          &serverTimezone=Asia/Shanghai
          &useServerPrepStmts=true        # 开启服务端预编译
@@ -380,7 +380,7 @@ workMapper.selectPage(page, queryWrapper);
 ```sql
 -- ============================================================
 -- SoundRead MySQL 性能索引补充
--- 执行环境：生产 MySQL (101.32.128.2)
+-- 执行环境：生产 MySQL (139.199.223.201)
 -- 注意：ALTER TABLE 在数据量大时会短暂锁表，建议业务低峰执行
 -- ============================================================
 
