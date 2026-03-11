@@ -59,9 +59,14 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
     private final R2StorageAdapter r2StorageAdapter;
     private final CreationService creationService;
 
-    /** R2 音频上传专用线程池（来自 AsyncConfig，与 WebSocket 线程隔离） */
+    /**
+     * R2 音频上传专用线程池（来自 AsyncConfig，与 WebSocket 线程隔离）
+     * 注意：不能用 final+@RequiredArgsConstructor，Lombok 不低推 @Qualifier，会导致
+     * NoUniqueBeanDefinitionException
+     */
+    @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.beans.factory.annotation.Qualifier("r2UploadExecutor")
-    private final Executor r2UploadExecutor;
+    private Executor r2UploadExecutor;
 
     /** 活跃会话映射（WebSocket sessionId → PodcastSession） */
     private final Map<String, PodcastClient.PodcastSession> activeSessions = new ConcurrentHashMap<>();
