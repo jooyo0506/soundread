@@ -127,7 +127,7 @@ public class TtsV2Controller {
     public Result<String> enhanceEmotionTags(@Valid @RequestBody AiEmotionRequest request) {
         try {
             User user = authService.getCurrentUser();
-            quotaService.checkAndDeductAiScriptQuota(user);
+            // TTS 合成字数已在 synthesize 接口统一计量，此处仅做功能鲁检
 
             String enhancedText = aiScriptService.enhanceEmotionTags(user, request.getText());
             return Result.ok(enhancedText);
@@ -156,7 +156,7 @@ public class TtsV2Controller {
     public Result<String> generateScene(@Valid @RequestBody AiSceneRequest request) {
         try {
             User user = authService.getCurrentUser();
-            quotaService.checkAndDeductAiScriptQuota(user);
+            // TTS 合成字数已在 synthesize 接口统一计量，此处仅做功能鲁检
 
             String sceneScript = aiScriptService.generateSceneScript(
                     user,

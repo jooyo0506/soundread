@@ -188,8 +188,7 @@ public class TtsController {
                 return emitter;
             }
 
-            // 检查并扣除 AI 台本额度
-            quotaService.checkAndDeductAiScriptQuota(user);
+            // 当前仅做功能权限检查，TTS 合成字数将在 synthesize 接口统一计量
 
             aiScriptService.generateScriptStream(user, req.getPrompt())
                     .onNext(chunk -> {
