@@ -1,5 +1,7 @@
 <template>
-  <div class="w-[390px] h-[844px] bg-[#050505] rounded-[40px] overflow-hidden relative shadow-2xl flex flex-col border-[8px] border-gray-800">
+  <div class="app-container bg-[#050505] relative flex flex-col overflow-hidden
+              sm:w-[390px] sm:h-[844px] sm:rounded-[40px] sm:shadow-2xl sm:border-[8px] sm:border-gray-800">
+
     <!-- 主体路由出口 -->
     <div class="flex-1 overflow-y-auto relative hide-scrollbar">
       <router-view v-slot="{ Component }">
@@ -35,6 +37,23 @@ const showTabBar = computed(() => {
 </script>
 
 <style>
+/* 移动端全屏容器 */
+.app-container {
+  /* 高度：用 dvh (dynamic viewport height) 适配 Safari 地址栏的动态显示/隐藏 */
+  height: 100vh;          /* 旧版浏览器 fallback */
+  height: 100svh;         /* small viewport height，iOS 15.4+ */
+  height: 100dvh;         /* dynamic viewport height，最新 */
+  width: 100%;
+}
+
+/* 桌面端：sm 断点 (640px+) 由 Tailwind sm: 类覆盖宽高，此处不限制 */
+@media (min-width: 640px) {
+  .app-container {
+    width: 390px;
+    height: 844px;
+  }
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

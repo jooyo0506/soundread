@@ -1,5 +1,6 @@
 <template>
-  <div class="absolute bottom-0 w-full h-[82px] bg-[#09090f]/95 backdrop-blur-xl border-t border-white/5 flex justify-around items-start pt-2.5 px-4 z-[40]">
+  <div class="absolute bottom-0 w-full bg-[#09090f]/95 backdrop-blur-xl border-t border-white/5 flex justify-around items-start pt-2.5 px-4 z-[40] tabbar-wrap">
+
 
     <router-link to="/" class="tab-item" :class="isActive('Home') ? 'tab-active' : 'tab-inactive'">
       <i class="fas fa-home text-[22px]"></i>
@@ -39,6 +40,12 @@ const isActive = (name) => route.name === name
 </script>
 
 <style scoped>
+/* TabBar 高度 = 内容区 82px + iOS 底部安全区（iPhone X+ Home Bar）*/
+.tabbar-wrap {
+  height: calc(82px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 .tab-item {
   display: flex; flex-direction: column;
   align-items: center; gap: 4px;

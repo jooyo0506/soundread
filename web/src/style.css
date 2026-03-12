@@ -3,10 +3,30 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-900 flex justify-center items-center font-sans m-0 min-h-screen;
+  html, body {
+    @apply bg-[#050505] m-0 p-0 font-sans w-full h-full;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* 定义安全区变量（iPhone 刘海/底部 Home Bar） */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* 桌面端：居中展示 phone mockup */
+  @media (min-width: 640px) {
+    body {
+      @apply bg-gray-900 flex justify-center items-center min-h-screen;
+    }
+  }
+
+  /* 移动端：body 铺满，不居中 */
+  @media (max-width: 639px) {
+    body {
+      @apply bg-[#050505] overflow-hidden;
+    }
+    #app {
+      @apply w-full h-full;
+    }
   }
 }
 
