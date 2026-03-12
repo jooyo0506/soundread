@@ -23,99 +23,42 @@
 
 ## 🔴 P0 — 立即可做（不需要等用户量）
 
-### 1. 数据库索引补全
+### 1. 数据库索引补全 ✅ 已完成（V13）
 
-**问题**：多张高频查询表缺少索引。当数据量增长到万级，查询会显著变慢。
+**已执行 SQL**：`docs/sql/migration/V13__performance_indexes.sql`（幂等版，重复执行安全）
 
-**当前索引情况**：
-
-| 表 | 已有索引 | ❌ 缺失的索引 |
+| 表 | 已创建索引 | 用途 |
 |---|---|---|
-| `work` | `PRIMARY`, `idx_category_play` | `(user_id, deleted)`, `(review_status, deleted)`, `(status, deleted)`, `(source_type)` |
-| `user_creation` | `idx_user_id`, `idx_user_created` | `(source_type, deleted)` |
-| `user` | `PRIMARY` | `(phone)` — 登录查询必用！ |
-| `studio_project` | `PRIMARY` | `(user_id, created_at)` |
-| `studio_section` | `PRIMARY` | `(project_id, section_index)` |
-| `music_task` | `PRIMARY` | `(user_id, status)` |
-| `novel_project` | `PRIMARY` | `(user_id, deleted)` |
-| `tts_task` | `PRIMARY` | `(user_id, created_at)` |
+| `user` | `idx_phone`, `idx_tier_code` | 登录查询、等级筛选 |
+| `work` | `idx_review_heat`, `idx_review_type_heat`, `idx_user_review`, `idx_review_created` | 发现页核心查询 |
+| `vip_order` | `idx_vip_user_id`, `uk_order_no`（唯一） | 订单查询、幂等防重复 |
+| `tts_task` | `idx_tts_user_status` | 异步任务轮询 |
+| `music_task` | `idx_music_user_status`, `idx_music_status_created` | 音乐任务轮询（5秒轮询） |
+| `studio_project` | `idx_project_user_created` | 工作台项目列表 |
+| `user_creation` | `idx_user_type_created`, `idx_is_published_created` | 创作记录查询 |
 
-**执行 SQL**：
-```sql
--- ========== P0 索引补全 ==========
-
--- 用户登录（每次都查，最紧急！）
-ALTER TABLE user ADD INDEX idx_phone (phone);
-
--- 发现页：按状态+逻辑删除筛选
-ALTER TABLE work ADD INDEX idx_status_deleted (status, deleted);
-ALTER TABLE work ADD INDEX idx_review_deleted (review_status, deleted);
-ALTER TABLE work ADD INDEX idx_userid_deleted (user_id, deleted);
-
--- 工作台项目列表
-ALTER TABLE studio_project ADD INDEX idx_user_created (user_id, created_at DESC);
-ALTER TABLE studio_section ADD INDEX idx_project_idx (project_id, section_index);
-
--- 音乐任务轮询
-ALTER TABLE music_task ADD INDEX idx_user_status (user_id, status);
-
--- 小说项目
-ALTER TABLE novel_project ADD INDEX idx_user_deleted (user_id, deleted);
-
--- 创作记录
-ALTER TABLE user_creation ADD INDEX idx_source_deleted (source_type, deleted);
-
--- TTS 任务
-ALTER TABLE tts_task ADD INDEX idx_user_created (user_id, created_at DESC);
-```
-
-> ⚠️ `user.phone` 索引是最紧急的——**每次登录都全表扫描**。用户多了以后登录会越来越慢。
+> ✅ 满查询日志也已开启（V13 末尾 `SET GLOBAL slow_query_log = ON`）
 
 ---
 
-### 2. 异步线程池配置
+### 2. 异步线程池配置 ✅ 已完成
 
-**问题**：`@EnableAsync` 使用的是 Spring 默认的 `SimpleAsyncTaskExecutor`，每次请求都**新建线程**，没有复用。在高并发下会导致线程爆炸。
+**`AsyncConfig.java`** 已配置 3 个语义独立的线程池：
 
-**当前使用 @Async 的代码**：
-- `VoiceCloneService.@Async` — 声音克隆
-- `NovelPipelineService.@Async` — 小说生成管线
+| 线程池 | 配置 | 用途 |
+|---|---|---|
+| `ioTaskExecutor` | core=10, max=50, queue=200 | TTS 合成、外部 API 调用（IO 密集）|
+| `r2UploadExecutor` | core=5, max=20, queue=100 | Cloudflare R2 音频上传/下载 |
+| `scheduledTaskPool` | corePool=4 (`newScheduledThreadPool`) | 定时任务（HeatScoreJob + MusicService 轮询）|
 
-**修复方案**：创建 `config/AsyncConfig.java`
-
-```java
-package com.soundread.config;
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
-
-@Configuration
-@EnableAsync
-public class AsyncConfig {
-
-    @Bean("taskExecutor")
-    public ThreadPoolTaskExecutor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);          // 核心线程数
-        executor.setMaxPoolSize(16);          // 最大线程数
-        executor.setQueueCapacity(100);       // 等待队列容量
-        executor.setKeepAliveSeconds(60);     // 空闲线程存活时间
-        executor.setThreadNamePrefix("async-");
-        // 队列满了之后，由调用者线程执行（不会丢任务）
-        executor.setRejectedExecutionHandler(
-            new ThreadPoolExecutor.CallerRunsPolicy());
-        executor.initialize();
-        return executor;
-    }
-}
-```
+**设计亮点**：
+- IO 密集公式：线程数 = CPU核数 × (1 + 等待/计算)，TTS 调用 99% 是等待 API。
+- R2 上传与 TTS 合成隔离，防止 R2 上传慢时占用 TTS 线程。
+- `CallerRunsPolicy` 降级策略：队列满时由调用者线程执行，避免丢任务。
 
 ---
 
-### 3. HikariCP 连接池调参
+### 3. HikariCP 连接池调参 ❌ 未完成
 
 **问题**：Spring Boot 默认 HikariCP 配置（`maximumPoolSize=10`），未根据业务负载调优。
 
@@ -136,9 +79,11 @@ spring:
 
 ## 🟡 P1 — 用户破千时做
 
-### 4. Redis 业务缓存
+### 4. Redis 业务缓存 ⚠️ 部分完成
 
-**问题**：Redis 目前只给 Sa-Token 和配额计数用。大量可缓存的高频查询每次都打数据库。
+**已完成**：策略级别缓存（`TierPolicyService`）已实现 L1 JVM + L2 Redis 双层，配合 Redis Pub/Sub 实现秒级失效。
+
+**尚未完成**：以下高频查询还在逐次打库。
 
 **建议缓存的接口**：
 
@@ -253,9 +198,16 @@ public Result<...> generateTts(...) { ... }
 
 ---
 
-### 6. 慢查询监控
+### 6. 慢查询监控 ✅ 已完成
 
-**MySQL 慢查询日志**：
+**MySQL 慢查询日志**已在 V13 迁移脚本末尾开启：
+```sql
+SET GLOBAL slow_query_log = ON;
+SET GLOBAL long_query_time = 1;                  -- 超过 1 秒的查询记录
+SET GLOBAL log_queries_not_using_indexes = ON;    -- 未走索引的查询也记录
+```
+
+**MyBatis-Plus SQL 日志（开发环境）**：
 ```sql
 SET GLOBAL slow_query_log = 'ON';
 SET GLOBAL long_query_time = 1;    -- 超过 1 秒的查询记录
@@ -414,22 +366,23 @@ soundread-media-service  ← 音频存储 + 转码
 
 ## 📋 执行优先级总览
 
-| 优先级 | 用户量级 | 优化项 | 复杂度 | 收益 |
-|---|---|---|---|---|
-| 🔴 P0 | 现在 | 索引补全 | ⭐ | ⭐⭐⭐⭐⭐ |
-| 🔴 P0 | 现在 | 线程池配置 | ⭐ | ⭐⭐⭐ |
-| 🔴 P0 | 现在 | 连接池调参 | ⭐ | ⭐⭐⭐ |
-| 🟡 P1 | 破千 | Redis 业务缓存 | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| 🟡 P1 | 破千 | 接口限流 | ⭐⭐ | ⭐⭐⭐⭐ |
-| 🟡 P1 | 破千 | 慢查询监控 | ⭐ | ⭐⭐⭐ |
-| 🟢 P2 | 破万 | 多级缓存 | ⭐⭐⭐ | ⭐⭐⭐ |
-| 🟢 P2 | 破万 | N+1 查询优化 | ⭐⭐ | ⭐⭐ |
-| 🟢 P2 | 破万 | CDN 加速 | ⭐⭐ | ⭐⭐⭐⭐⭐ |
-| 🟢 P2 | 破万 | 读写分离 | ⭐⭐⭐ | ⭐⭐⭐⭐ |
-| 🔵 P3 | 破十万 | 分库分表 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| 🔵 P3 | 破十万 | MQ 深度解耦 | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| 🔵 P3 | 破十万 | ES 搜索引擎 | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| 🔵 P3 | 破十万 | 微服务拆分 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 优先级 | 用户量级 | 优化项 | 复杂度 | 收益 | 状态 |
+|---|---|---|---|---|---|
+| 🔴 P0 | 现在 | 索引补全 | ⭐ | ⭐⭐⭐⭐⭐ | ✅ 已完成 |
+| 🔴 P0 | 现在 | 线程池配置 | ⭐ | ⭐⭐⭐ | ✅ 已完成 |
+| 🔴 P0 | 现在 | 慢查询监控 | ⭐ | ⭐⭐⭐ | ✅ 已完成 |
+| 🔴 P0 | 现在 | 连接池调参 | ⭐ | ⭐⭐⭐ | ❌ 待完成 |
+| 🟡 P1 | 破千 | Redis 业务缓存 | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⚠️ 策略缓存已完成，其他待做 |
+| 🟡 P1 | 破千 | 接口限流 | ⭐⭐ | ⭐⭐⭐⭐ | ❌ 待完成 |
+| 🟡 P1 | 破千 | 慢查询监控 | ⭐ | ⭐⭐⭐ | ✅ 已完成 |
+| 🟢 P2 | 破万 | 多级缓存 | ⭐⭐⭐ | ⭐⭐⭐ | ❌ 待做 |
+| 🟢 P2 | 破万 | N+1 查询优化 | ⭐⭐ | ⭐⭐ | ❌ 待做 |
+| 🟢 P2 | 破万 | CDN 加速 | ⭐⭐ | ⭐⭐⭐⭐⭐ | ❌ 待做 |
+| 🟢 P2 | 破万 | 读写分离 | ⭐⭐⭐ | ⭐⭐⭐⭐ | ❌ 待做 |
+| 🔵 P3 | 破十万 | 分库分表 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ❌ 待做 |
+| 🔵 P3 | 破十万 | MQ 深度解耦 | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ❌ 待做 |
+| 🔵 P3 | 破十万 | ES 搜索引擎 | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ❌ 待做 |
+| 🔵 P3 | 破十万 | 微服务拆分 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ❌ 待做 |
 
 ---
 
