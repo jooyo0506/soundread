@@ -87,154 +87,165 @@
       </div>
 
       <div class="grid grid-cols-2 gap-2.5">
-        <div v-for="work in works" :key="work.id"
-             v-memo="[work.isLiked, work.likeCount, work.playCount]"
-             @click="handleClick(work)"
-             class="rounded-xl overflow-hidden cursor-pointer group transition-all duration-200 hover:scale-[1.02] bg-[#141414] border border-white/[0.04] hover:border-white/10 relative">
+        <!-- 骨架屏（首次加载） -->
+        <template v-if="isFirstLoading">
+          <div v-for="n in 6" :key="'sk-' + n" class="rounded-xl overflow-hidden bg-[#141414] border border-white/[0.04]">
+            <div class="h-24 skeleton-box"></div>
+            <div class="px-2.5 py-2 space-y-1.5">
+              <div class="h-2 rounded skeleton-box w-3/4"></div>
+              <div class="h-2 rounded skeleton-box w-1/2"></div>
+            </div>
+          </div>
+        </template>
 
-          <!-- 作者管理按钮（仅自己的作品可见） -->
-          <div v-if="isMyWork(work)" class="absolute top-1.5 right-1.5 z-20 flex items-center gap-1">
-            <span class="text-[7px] font-bold text-white/60 bg-black/50 backdrop-blur px-1.5 py-0.5 rounded">我的</span>
-            <button @click.stop="openActionSheet(work)"
-                    class="w-6 h-6 rounded-full bg-black/50 backdrop-blur flex items-center justify-center hover:bg-black/70 transition-colors cursor-pointer">
-              <i class="fas fa-ellipsis-v text-[9px] text-white/70"></i>
-            </button>
+        <!-- 作品列表 -->
+        <template v-else>
+          <div v-for="work in works" :key="work.id"
+               v-memo="[work.isLiked, work.likeCount, work.playCount]"
+               @click="handleClick(work)"
+               class="rounded-xl overflow-hidden cursor-pointer group transition-all duration-150 active:scale-[0.97] hover:scale-[1.02] bg-[#141414] border border-white/[0.04] hover:border-white/10 relative">
+
+            <!-- 作者管理按钮（仅自己的作品可见） -->
+            <div v-if="isMyWork(work)" class="absolute top-1.5 right-1.5 z-20 flex items-center gap-1">
+              <span class="text-[7px] font-bold text-white/60 bg-black/50 backdrop-blur px-1.5 py-0.5 rounded">我的</span>
+              <button @click.stop="openActionSheet(work)"
+                      class="w-6 h-6 rounded-full bg-black/50 backdrop-blur flex items-center justify-center hover:bg-black/70 transition-colors cursor-pointer">
+                <i class="fas fa-ellipsis-v text-[9px] text-white/70"></i>
+              </button>
+            </div>
+
+            <!-- ════ 小说卡片 ════ -->
+            <template v-if="work.contentType === 'novel'">
+              <div class="h-24 p-3 relative overflow-hidden bg-gradient-to-br from-indigo-900/50 via-blue-900/30 to-cyan-900/20">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-cyan-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
+                <div class="relative z-10 h-full flex flex-col justify-between">
+                  <span class="inline-flex items-center gap-1 text-[8px] font-bold text-cyan-300/80 bg-cyan-500/10 px-1.5 py-0.5 rounded w-fit">
+                    <i class="fas fa-book-open"></i> 小说
+                  </span>
+                  <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
+                </div>
+              </div>
+              <div class="px-2.5 py-2">
+                <p v-if="work.description" class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description }}</p>
+                <div class="flex items-center justify-between text-[9px] text-gray-600">
+                  <span class="flex items-center gap-1"><i class="fas fa-file-alt"></i> {{ work.chapterCount || 0 }}章</span>
+                  <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
+                    <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- ════ 播客卡片 ════ -->
+            <template v-else-if="work.contentType === 'podcast'">
+              <div class="h-24 relative overflow-hidden bg-gradient-to-br from-emerald-900/50 via-teal-900/30 to-cyan-900/20">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
+                <div class="absolute bottom-1.5 left-2.5 flex items-end gap-[2px] opacity-25">
+                  <div v-for="i in 7" :key="i" class="w-[2px] rounded-full bg-emerald-400 animate-wave"
+                       :style="{ height: (4 + Math.random() * 12) + 'px', animationDelay: (i * 0.12) + 's' }"></div>
+                </div>
+                <div class="absolute inset-0 flex flex-col justify-between p-3">
+                  <span class="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-300/80 bg-emerald-500/10 px-1.5 py-0.5 rounded w-fit">
+                    <i class="fas fa-podcast"></i> 双播
+                  </span>
+                  <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
+                </div>
+                <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="w-9 h-9 rounded-full bg-emerald-500 flex justify-center items-center text-black pl-0.5 shadow-lg shadow-emerald-500/30">
+                    <i class="fas fa-play text-xs"></i>
+                  </div>
+                </div>
+              </div>
+              <div class="px-2.5 py-2">
+                <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 智能双人播客' }}</p>
+                <div class="flex items-center justify-between text-[9px] text-gray-600">
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
+                    <span v-if="work.audioDuration" class="flex items-center gap-0.5"><i class="far fa-clock text-[7px]"></i> {{ formatDuration(work.audioDuration) }}</span>
+                  </div>
+                  <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
+                    <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- ════ 音乐卡片 ════ -->
+            <template v-else-if="work.contentType === 'music'">
+              <div class="h-24 relative overflow-hidden bg-gradient-to-br from-fuchsia-900/50 via-pink-900/30 to-violet-900/20">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-fuchsia-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
+                <div class="absolute inset-0 flex flex-col justify-between p-3">
+                  <span class="inline-flex items-center gap-1 text-[8px] font-bold text-fuchsia-300/80 bg-fuchsia-500/10 px-1.5 py-0.5 rounded w-fit">
+                    <i class="fas fa-music"></i> 音乐
+                  </span>
+                  <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
+                </div>
+                <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="w-9 h-9 rounded-full bg-fuchsia-500 flex justify-center items-center text-black pl-0.5 shadow-lg shadow-fuchsia-500/30">
+                    <i class="fas fa-play text-xs"></i>
+                  </div>
+                </div>
+              </div>
+              <div class="px-2.5 py-2">
+                <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 音乐' }}</p>
+                <div class="flex items-center justify-between text-[9px] text-gray-600">
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
+                    <span v-if="work.audioDuration" class="flex items-center gap-0.5"><i class="far fa-clock text-[7px]"></i> {{ formatDuration(work.audioDuration) }}</span>
+                  </div>
+                  <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
+                    <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- ════ 默认语音卡片 ════ -->
+            <template v-else>
+              <div class="h-24 relative overflow-hidden bg-gradient-to-br from-[#4F46E5]/40 via-[#6D28D9]/25 to-[#7C3AED]/20">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-violet-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
+                <img v-if="work.coverUrl" :src="work.coverUrl" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity" />
+                <div class="absolute inset-0 flex flex-col justify-between p-3" :class="work.coverUrl ? 'bg-gradient-to-t from-black/70 via-transparent to-transparent' : ''">
+                  <span class="inline-flex items-center gap-1 text-[8px] font-bold text-violet-300/80 bg-violet-500/10 px-1.5 py-0.5 rounded w-fit">
+                    <i class="fas fa-headphones"></i> 语音
+                  </span>
+                  <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
+                </div>
+                <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="w-9 h-9 rounded-full bg-[#FF9500] flex justify-center items-center text-black pl-0.5 shadow-lg shadow-orange-500/30">
+                    <i class="fas fa-play text-xs"></i>
+                  </div>
+                </div>
+              </div>
+              <div class="px-2.5 py-2">
+                <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 创作' }}</p>
+                <div class="flex items-center justify-between text-[9px] text-gray-600">
+                  <div class="flex items-center gap-1.5">
+                    <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
+                    <span v-if="work.audioDuration" class="flex items-center gap-0.5"><i class="far fa-clock text-[7px]"></i> {{ formatDuration(work.audioDuration) }}</span>
+                  </div>
+                  <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
+                    <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
+                  </button>
+                </div>
+              </div>
+            </template>
           </div>
 
-          <!-- ════ 小说卡片 ════ -->
-          <template v-if="work.contentType === 'novel'">
-            <div class="h-24 p-3 relative overflow-hidden bg-gradient-to-br from-indigo-900/50 via-blue-900/30 to-cyan-900/20">
-              <div class="absolute top-0 right-0 w-16 h-16 bg-cyan-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
-              <div class="relative z-10 h-full flex flex-col justify-between">
-                <span class="inline-flex items-center gap-1 text-[8px] font-bold text-cyan-300/80 bg-cyan-500/10 px-1.5 py-0.5 rounded w-fit">
-                  <i class="fas fa-book-open"></i> 小说
-                </span>
-                <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
-              </div>
+          <!-- 空状态 -->
+          <div v-if="works.length === 0" class="col-span-2 py-12 text-center">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-white/[0.03] flex items-center justify-center">
+              <i class="fas fa-compass text-lg text-gray-700"></i>
             </div>
-            <div class="px-2.5 py-2">
-              <p v-if="work.description" class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description }}</p>
-              <div class="flex items-center justify-between text-[9px] text-gray-600">
-                <span class="flex items-center gap-1"><i class="fas fa-file-alt"></i> {{ work.chapterCount || 0 }}章</span>
-                <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
-                  <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <!-- ════ 播客卡片 ════ -->
-          <template v-else-if="work.contentType === 'podcast'">
-            <div class="h-24 relative overflow-hidden bg-gradient-to-br from-emerald-900/50 via-teal-900/30 to-cyan-900/20">
-              <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
-              <!-- 波形 -->
-              <div class="absolute bottom-1.5 left-2.5 flex items-end gap-[2px] opacity-25">
-                <div v-for="i in 7" :key="i" class="w-[2px] rounded-full bg-emerald-400 animate-wave"
-                     :style="{ height: (4 + Math.random() * 12) + 'px', animationDelay: (i * 0.12) + 's' }"></div>
-              </div>
-              <div class="absolute inset-0 flex flex-col justify-between p-3">
-                <span class="inline-flex items-center gap-1 text-[8px] font-bold text-emerald-300/80 bg-emerald-500/10 px-1.5 py-0.5 rounded w-fit">
-                  <i class="fas fa-podcast"></i> 双播
-                </span>
-                <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
-              </div>
-              <!-- hover 播放 -->
-              <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div class="w-9 h-9 rounded-full bg-emerald-500 flex justify-center items-center text-black pl-0.5 shadow-lg shadow-emerald-500/30">
-                  <i class="fas fa-play text-xs"></i>
-                </div>
-              </div>
-            </div>
-            <div class="px-2.5 py-2">
-              <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 智能双人播客' }}</p>
-              <div class="flex items-center justify-between text-[9px] text-gray-600">
-                <div class="flex items-center gap-1.5">
-                  <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
-                  <span v-if="work.audioDuration" class="flex items-center gap-0.5"><i class="far fa-clock text-[7px]"></i> {{ formatDuration(work.audioDuration) }}</span>
-                </div>
-                <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
-                  <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <!-- ════ 音乐卡片 ════ -->
-          <template v-else-if="work.contentType === 'music'">
-            <div class="h-24 relative overflow-hidden bg-gradient-to-br from-fuchsia-900/50 via-pink-900/30 to-violet-900/20">
-              <div class="absolute top-0 right-0 w-16 h-16 bg-fuchsia-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
-              <div class="absolute inset-0 flex flex-col justify-between p-3">
-                <span class="inline-flex items-center gap-1 text-[8px] font-bold text-fuchsia-300/80 bg-fuchsia-500/10 px-1.5 py-0.5 rounded w-fit">
-                  <i class="fas fa-music"></i> 音乐
-                </span>
-                <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
-              </div>
-              <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div class="w-9 h-9 rounded-full bg-fuchsia-500 flex justify-center items-center text-black pl-0.5 shadow-lg shadow-fuchsia-500/30">
-                  <i class="fas fa-play text-xs"></i>
-                </div>
-              </div>
-            </div>
-            <div class="px-2.5 py-2">
-              <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 音乐' }}</p>
-              <div class="flex items-center justify-between text-[9px] text-gray-600">
-                <div class="flex items-center gap-1.5">
-                  <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
-                  <span v-if="work.audioDuration" class="flex items-center gap-0.5"><i class="far fa-clock text-[7px]"></i> {{ formatDuration(work.audioDuration) }}</span>
-                </div>
-                <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
-                  <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
-                </button>
-              </div>
-            </div>
-          </template>
-
-          <!-- ════ 默认语音卡片 ════ -->
-          <template v-else>
-            <div class="h-24 relative overflow-hidden bg-gradient-to-br from-[#4F46E5]/40 via-[#6D28D9]/25 to-[#7C3AED]/20">
-              <div class="absolute top-0 right-0 w-16 h-16 bg-violet-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
-              <img v-if="work.coverUrl" :src="work.coverUrl" loading="lazy" decoding="async" class="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity" />
-              <div class="absolute inset-0 flex flex-col justify-between p-3" :class="work.coverUrl ? 'bg-gradient-to-t from-black/70 via-transparent to-transparent' : ''">
-                <span class="inline-flex items-center gap-1 text-[8px] font-bold text-violet-300/80 bg-violet-500/10 px-1.5 py-0.5 rounded w-fit">
-                  <i class="fas fa-headphones"></i> 语音
-                </span>
-                <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
-              </div>
-              <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <div class="w-9 h-9 rounded-full bg-[#FF9500] flex justify-center items-center text-black pl-0.5 shadow-lg shadow-orange-500/30">
-                  <i class="fas fa-play text-xs"></i>
-                </div>
-              </div>
-            </div>
-            <div class="px-2.5 py-2">
-              <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 创作' }}</p>
-              <div class="flex items-center justify-between text-[9px] text-gray-600">
-                <div class="flex items-center gap-1.5">
-                  <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
-                  <span v-if="work.audioDuration" class="flex items-center gap-0.5"><i class="far fa-clock text-[7px]"></i> {{ formatDuration(work.audioDuration) }}</span>
-                </div>
-                <button @click.stop="handleLike(work)" class="flex items-center gap-0.5 hover:text-rose-400 transition-colors cursor-pointer" :class="work.isLiked ? 'text-rose-500' : ''">
-                  <i :class="work.isLiked ? 'fas fa-heart' : 'far fa-heart'" class="text-[8px]"></i> {{ formatNumber(work.likeCount) }}
-                </button>
-              </div>
-            </div>
-          </template>
-        </div>
-        
-
-        <!-- 空状态 -->
-        <div v-if="works.length === 0 && !loading" class="col-span-2 py-12 text-center">
-          <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-white/[0.03] flex items-center justify-center">
-            <i class="fas fa-compass text-lg text-gray-700"></i>
+            <p class="text-gray-500 text-xs mb-0.5">暂无{{ activeCategoryLabel.replace('作品','') }}作品</p>
+            <p class="text-gray-700 text-[10px]">快去创作你的第一个作品吧</p>
           </div>
-          <p class="text-gray-500 text-xs mb-0.5">暂无{{ activeCategoryLabel.replace('作品','') }}作品</p>
-          <p class="text-gray-700 text-[10px]">快去创作你的第一个作品吧</p>
-        </div>
 
-        <!-- 加载中 -->
-        <div v-if="loading" class="col-span-2 py-4 text-center">
-          <i class="fas fa-circle-notch fa-spin text-gray-600"></i>
-        </div>
+          <!-- 底部加载更多 -->
+          <div v-if="loading" class="col-span-2 py-4 text-center">
+            <i class="fas fa-circle-notch fa-spin text-gray-600"></i>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -327,6 +338,7 @@ import { usePlayerStore } from '../stores/player'
 import { useToastStore } from '../stores/toast'
 
 const router = useRouter()
+const isFirstLoading = computed(() => loading.value && works.value.length === 0)
 const toastStore = useToastStore()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
@@ -531,6 +543,21 @@ onMounted(() => loadWorks())
 </script>
 
 <style scoped>
+/* 骨架屏闪烁 */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-box {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
 .reader-enter-active,
 .reader-leave-active {
   transition: transform 0.3s ease, opacity 0.3s ease;

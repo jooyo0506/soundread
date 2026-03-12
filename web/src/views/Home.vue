@@ -91,7 +91,7 @@
               <i class="fas fa-masks-theater"></i>
             </div>
             <p class="text-white text-[13px] font-black mt-3 mb-0.5">情感调音台</p>
-            <p class="text-[10px] text-gray-500">TTS 2.0 情感合成</p>
+            <p class="text-[10px] text-gray-500">演讲·配音·广播剧，声音更有戏</p>
           </div>
 
           <div @click="router.push('/podcast')"
@@ -100,25 +100,25 @@
               <i class="fas fa-podcast"></i>
             </div>
             <p class="text-white text-[13px] font-black mt-3 mb-0.5">AI 播客</p>
-            <p class="text-[10px] text-gray-500">多角色双播创作</p>
+            <p class="text-[10px] text-gray-500">两个人的对话，一键生成</p>
           </div>
 
           <div @click="router.push('/music')"
-               class="feat-card feat-card--fuchsia group cursor-pointer">
+               class="feat-card feat-card--fuchsia group cursor-pointer active:scale-[0.98] active:shadow-inner">
             <div class="feat-icon bg-gradient-to-br from-fuchsia-500 to-purple-600">
               <i class="fas fa-music"></i>
             </div>
             <p class="text-white text-[13px] font-black mt-3 mb-0.5">AI 音乐</p>
-            <p class="text-[10px] text-gray-500">歌曲 & 纯音乐</p>
+            <p class="text-[10px] text-gray-500">从一句歌词开始</p>
           </div>
 
           <div @click="router.push('/create')"
-               class="feat-card feat-card--orange group cursor-pointer">
+               class="feat-card feat-card--orange group cursor-pointer active:scale-[0.98] active:shadow-inner">
             <div class="feat-icon bg-gradient-to-br from-[#FF9500] to-[#FF6B00]">
               <i class="fas fa-microphone-alt"></i>
             </div>
             <p class="text-white text-[13px] font-black mt-3 mb-0.5">文字配音</p>
-            <p class="text-[10px] text-gray-500">TTS 极速合成</p>
+            <p class="text-[10px] text-gray-500">输入文字，立即成声</p>
           </div>
 
         </div>
@@ -278,8 +278,7 @@ onUnmounted(() => { clearInterval(sceneTimer) })
   filter: blur(50px); pointer-events: none;
 }
 .orb-1 { width: 180px; height: 180px; background: rgba(34,211,238,0.08); top: -40px; right: -20px; }
-.orb-2 { width: 120px; height: 120px; background: rgba(59,130,246,0.07); bottom: -20px; left: 10px;
-  animation: orb-pulse 4s ease-in-out infinite; }
+.orb-2 { width: 120px; height: 120px; background: rgba(59,130,246,0.07); bottom: -20px; left: 10px; }
 @keyframes orb-pulse { 0%,100%{opacity:0.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.2)} }
 
 .agent-icon {
@@ -343,6 +342,7 @@ onUnmounted(() => { clearInterval(sceneTimer) })
   border-color: rgba(34,211,238,0.3);
   color: #22d3ee; background: rgba(34,211,238,0.08);
 }
+.scene-chip:active { transform: scale(0.93); transition: transform 0.08s; }
 
 /* ── Feature Cards ── */
 .feat-card {
@@ -352,6 +352,7 @@ onUnmounted(() => { clearInterval(sceneTimer) })
   transition: all 0.2s; position: relative; overflow: hidden;
 }
 .feat-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.06); }
+.feat-card:active { transform: scale(0.96); transition: transform 0.08s; }
 .feat-card--purple:hover { border-color: rgba(168,85,247,0.3); }
 .feat-card--emerald:hover { border-color: rgba(16,185,129,0.3); }
 .feat-card--fuchsia:hover { border-color: rgba(192,80,240,0.3); }
