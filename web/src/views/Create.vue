@@ -46,15 +46,15 @@
               <button 
                 @click="userPrompt = '深夜情感电台：一段关于释怀与放下过去的独白，语气从一开始的淡淡忧伤转为最后的坚定释然。'"
                 class="text-[10px] px-2.5 py-1 rounded-md bg-[#FF9500]/10 text-[#FF9500]/80 hover:bg-[#FF9500]/25 hover:text-[#FF9500] transition-colors whitespace-nowrap"
-              >📻 深夜电台</button>
+              >深夜电台</button>
               <button 
                 @click="userPrompt = '悬疑解说开场：一段充满压迫感和神秘感的电影解说起手式，语气低沉诡异，节奏紧凑。'"
                 class="text-[10px] px-2.5 py-1 rounded-md bg-[#FF9500]/10 text-[#FF9500]/80 hover:bg-[#FF9500]/25 hover:text-[#FF9500] transition-colors whitespace-nowrap"
-              >🔪 悬疑解说</button>
+              >悬疑解说</button>
               <button 
                 @click="userPrompt = '大女主爽文独白：面对曾经背叛自己的人，语气从一开始的轻描淡写转为极具张力的霸气反击。'"
                 class="text-[10px] px-2.5 py-1 rounded-md bg-[#FF9500]/10 text-[#FF9500]/80 hover:bg-[#FF9500]/25 hover:text-[#FF9500] transition-colors whitespace-nowrap"
-              >👑 爽文旁白</button>
+              >爽文旁白</button>
             </div>
             
             <!-- 触发动作 -->
@@ -117,7 +117,7 @@
               <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#FF9500] rounded-full"></span>
             </div>
             <span class="text-[10px] text-[#FF9500] font-bold group-hover:text-white flex items-center gap-0.5">
-              🎙️ {{ selectedVoice?.name || '选音色' }}
+              {{ selectedVoice?.name || '选音色' }}
               <i class="fas fa-chevron-right text-[8px] opacity-60"></i>
             </span>
           </div>
@@ -137,7 +137,7 @@
 
     <!-- 使用小贴士 -->
     <div class="mt-4 mb-2 space-y-2.5">
-      <h3 class="text-xs font-bold text-gray-400 mb-2">💡 使用小贴士</h3>
+      <h3 class="text-xs font-bold text-gray-400 mb-2">使用小贴士</h3>
       <div class="flex items-start gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/5">
         <i class="fas fa-lightbulb text-[#FF9500]/60 text-xs mt-0.5 shrink-0"></i>
         <p class="text-[11px] text-gray-400 leading-relaxed">选择不同的<span class="text-[#FF9500]">音色</span>可获得截然不同的效果，适合用于配音、朗读、广告等场景</p>
@@ -222,19 +222,19 @@ const synthStatusText = ref('准备合成中...')
 // 调用真实 SSE 接口打字机回显
 const generateScript = async () => {
   if (!authStore.isLoggedIn) {
-    toastStore.show('请先登录即可为您量身定制专属 AI 剧本 ✨')
+    toastStore.show('请先登录后生成 AI 剧本')
     router.replace({ name: 'Login', query: { redirect: '/create' } })
     return
   }
 
   if (!authStore.hasFeature('ai_script')) {
-    toastStore.show('当前权限不足，请访问会员台解锁 Pro 特权 👑')
+    toastStore.show('当前权限不足，请升级会员解锁 Pro 特权')
     return router.push('/vip')
   }
 
   const scriptQuota = authStore.getQuota('ai_script_daily_count')
   if (scriptQuota === 0) {
-    toastStore.show('今日 AI 剧本生成配额已耗尽或未开通权限，请升级会员或明日再来 ✨')
+    toastStore.show('今日 AI 剧本配额已耗尽，请升级会员或明日再来')
     return
   }
 
@@ -325,14 +325,14 @@ const generateScript = async () => {
 
 const handleSynthesize = async () => {
   if (!authStore.isLoggedIn) {
-    toastStore.show('请先登录以唤醒您的创作档案 ✨')
+    toastStore.show('请先登录')
     router.replace({ name: 'Login', query: { redirect: '/create' } })
     return
   }
   
   const currentText = scriptContent.value.trim()
   if (!currentText) {
-    toastStore.show('请先投喂一点创作灵感或基础文字素材哦 ✨')
+    toastStore.show('请输入文字内容')
     return
   }
   
@@ -340,7 +340,7 @@ const handleSynthesize = async () => {
   const currentSignature = `${currentText}|${selectedVoice.value.voiceId}|${speedRatio.value}|${volumeRatio.value}|${pitchRatio.value}`
   
   if (currentSignature === lastSynthSignature.value) {
-    toastStore.show('该内容与参数已合成完毕，无需重复提交 🚀')
+    toastStore.show('该内容已合成，无需重复提交')
     return
   }
   
@@ -375,7 +375,7 @@ const handleSynthesize = async () => {
 
 const completeSynthesis = async (url, titleLabel, currentSignature) => {
   lastSynthSignature.value = currentSignature // 记录成功合成的签名
-  synthStatusText.value = '合成完成 ✅'
+  synthStatusText.value = '合成完成'
   await new Promise(r => setTimeout(r, 400))
   playerStore.play({
     title: titleLabel,

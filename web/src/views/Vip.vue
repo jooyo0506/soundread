@@ -34,7 +34,7 @@
           class="glass-panel rounded-2xl p-4 flex justify-between items-center cursor-pointer transition-all relative overflow-hidden group mb-1" 
           :class="selectedPlan === recommendedPlan.planId ? 'plan-selected' : 'border-white/10 hover:border-white/20'"
         >
-          <div v-if="recommendedPlan.originalPrice > recommendedPlan.price" class="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg shadow-md">🔥 超值特惠</div>
+          <div v-if="recommendedPlan.originalPrice > recommendedPlan.price" class="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg shadow-md">超值特惠</div>
           
           <div>
             <h4 class="text-white font-bold text-base mb-1">{{ recommendedPlan.name }}</h4>

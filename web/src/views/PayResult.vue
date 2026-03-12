@@ -12,7 +12,7 @@
       <div class="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
         <i class="fas fa-check text-green-400 text-4xl"></i>
       </div>
-      <h1 class="text-2xl font-bold text-white mb-2">开通成功 🎉</h1>
+      <h1 class="text-2xl font-bold text-white mb-2">开通成功</h1>
       <p class="text-gray-400 mb-1">{{ planName }} 已激活</p>
       <p class="text-gray-600 text-sm mb-8">订单号：{{ orderNo }}</p>
       <button @click="goHome" class="px-8 py-3 rounded-full bg-gradient-to-r from-[#FF9500] to-[#FFD60A] text-black font-bold text-base cursor-pointer">

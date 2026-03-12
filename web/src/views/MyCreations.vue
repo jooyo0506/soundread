@@ -43,9 +43,8 @@
         <div v-for="item in creations" :key="item.id"
              class="glass-panel rounded-2xl p-4">
           <div class="flex items-center gap-3">
-            <!-- 图标 -->
-            <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-lg shrink-0">
-              {{ typeIcon(item.type) }}
+            <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+              <i :class="typeIcon(item.type)" class="text-sm text-gray-400"></i>
             </div>
             <!-- 信息 -->
             <div class="flex-1 min-w-0">
@@ -138,11 +137,11 @@ const expandedTranscript = ref(null)
 
 const types = [
   { value: null, label: '全部' },
-  { value: 'tts', label: '🎙️ 配音' },
-  { value: 'emotion', label: '🎭 情感' },
-  { value: 'drama', label: '🎬 导演' },
-  { value: 'podcast', label: '🎧 播客' },
-  { value: 'novel', label: '📚 小说' }
+  { value: 'tts', label: '配音' },
+  { value: 'emotion', label: '情感' },
+  { value: 'drama', label: '导演' },
+  { value: 'podcast', label: '播客' },
+  { value: 'novel', label: '小说' }
 ]
 
 onMounted(() => { loadList(); loadStorage() })
@@ -182,7 +181,7 @@ async function publishItem(item) {
       title: item.title || '未命名作品',
       category: item.type === 'podcast' ? 'podcast' : 'latest'
     })
-    toast.show('🎉 发布成功！')
+    toast.show('发布成功')
     item.isPublished = 1
   } catch (e) {
     toast.show(e.message || '发布失败')
@@ -236,7 +235,7 @@ async function copyTranscript(item) {
 }
 
 function typeIcon(type) {
-  return { tts: '🎙️', emotion: '🎭', drama: '🎬', podcast: '🎧', novel: '📚' }[type] || '📄'
+  return { tts: 'fas fa-microphone', emotion: 'fas fa-theater-masks', drama: 'fas fa-film', podcast: 'fas fa-podcast', novel: 'fas fa-book' }[type] || 'fas fa-file-audio'
 }
 function typeLabel(type) {
   return { tts: '配音', emotion: '情感合成', drama: '剧情导演', podcast: 'AI播客', novel: '有声小说' }[type] || type
