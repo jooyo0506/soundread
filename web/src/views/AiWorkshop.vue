@@ -7,7 +7,7 @@
           <i class="fas fa-chevron-left text-xs"></i>
         </button>
         <div class="flex-1 min-w-0">
-          <h1 class="text-base font-bold text-white flex items-center gap-1.5">🎙️ AI 声音工坊</h1>
+          <h1 class="text-base font-bold text-white">AI 声音工坊</h1>
           <p class="text-[9px] text-gray-500">一句话完成有声内容制作</p>
         </div>
         <button @click="clearChat" v-if="messages.length > 1"
@@ -19,12 +19,14 @@
 
     <!-- Scene Selector -->
     <div v-if="!activeScene && !hasUserMessages" class="px-4 pt-1 pb-3">
-      <h3 class="text-[11px] font-bold text-gray-400 mb-2.5 tracking-wider">🎬 选择创作场景</h3>
+      <h3 class="text-[11px] font-bold text-gray-400 mb-2.5 tracking-wider">选择创作场景</h3>
       <div class="grid grid-cols-3 gap-2">
         <div v-for="scene in scenes" :key="scene.id" @click="applyScene(scene)"
              class="relative rounded-xl p-2.5 cursor-pointer transition-all active:scale-[0.95] border overflow-hidden"
              :class="scene.borderClass">
-          <div class="text-xl mb-1">{{ scene.emoji }}</div>
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center mb-1.5" :class="scene.iconBg">
+            <i :class="[scene.icon, 'text-sm']" class="text-white/80"></i>
+          </div>
           <h4 class="text-white text-xs font-bold leading-tight">{{ scene.title }}</h4>
           <p class="text-[9px] text-gray-500 mt-0.5 leading-tight line-clamp-1">{{ scene.desc }}</p>
         </div>
@@ -35,7 +37,7 @@
     <div v-if="activeScene && !hasUserMessages" class="px-4 pt-1 pb-1">
       <div class="flex items-center gap-2">
         <span class="text-xs bg-white/5 border border-white/10 rounded-full px-2.5 py-1 text-gray-300 flex items-center gap-1">
-          {{ activeScene.emoji }} {{ activeScene.title }}
+          {{ activeScene.title }}
         </span>
         <button @click="resetScene" class="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">
           <i class="fas fa-times"></i> 换场景
@@ -49,8 +51,8 @@
 
         <!-- AI Message -->
         <div v-if="msg.role === 'ai'" class="flex gap-2">
-          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] shrink-0 shadow-[0_0_10px_rgba(34,211,238,0.25)] mt-0.5">
-            <i class="fas fa-robot"></i>
+          <div class="w-7 h-7 rounded-[8px] bg-white/8 border border-white/10 flex justify-center items-center shrink-0 mt-0.5">
+            <span class="text-[9px] font-black text-white/60 tracking-tight">SR</span>
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
@@ -74,7 +76,7 @@
                   <i :class="currentAudio === msg.audioUrl ? 'fas fa-pause' : 'fas fa-play'" class="text-xs"></i>
                 </button>
                 <div class="flex-1 min-w-0">
-                  <div class="text-[11px] text-white font-bold">🎵 语音合成完成</div>
+                  <div class="text-[11px] text-white font-bold">语音已生成</div>
                   <!-- Progress bar -->
                   <div class="mt-1 h-1 bg-white/10 rounded-full overflow-hidden cursor-pointer" @click="seekAudio($event, msg.audioUrl)">
                     <div class="h-full bg-gradient-to-r from-cyan-400 to-blue-400 rounded-full transition-all duration-200"
@@ -126,12 +128,12 @@
         </div>
       </div>
 
-      <!-- ★ 管线进度卡 -->
+      <!-- 管线进度卡 -->
       <div v-if="loading" class="flex gap-2 mb-3">
-        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white text-[10px] shrink-0 mt-0.5 shadow-[0_0_10px_rgba(34,211,238,0.3)]"
+          <div class="w-7 h-7 rounded-[8px] bg-white/8 border border-white/10 flex justify-center items-center shrink-0 mt-0.5"
              :class="loadingStageIdx < pipelineStages.length - 1 ? 'animate-pulse' : ''">
-          <i class="fas fa-robot"></i>
-        </div>
+            <span class="text-[9px] font-black text-white/60 tracking-tight">SR</span>
+          </div>
         <div class="flex-1 min-w-0">
           <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
           <div class="pipeline-card">
@@ -168,7 +170,7 @@
             </div>
             <!-- 预期时间提示 -->
             <div class="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between">
-              <span class="text-[9px] text-gray-600">⏱ {{ pipelineTip }}</span>
+              <span class="text-[9px] text-gray-600">{{ pipelineTip }}</span>
               <span class="text-[9px] text-gray-700">{{ loadingSeconds }}s</span>
             </div>
           </div>
@@ -278,20 +280,20 @@ const loadingSeconds = ref(0)   // 已等待秒数
 // ═══════════════════════════════════════════════════════
 
 const WELCOME_ACTIONS = [
-  { label: '✍️ 写台本', id: 'script', icon: 'fas fa-pen-nib',
+  { label: '写台本', id: 'script', icon: 'fas fa-pen-nib',
     style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300 active:bg-cyan-500/20' },
-  { label: '🎙️ 合成语音', id: 'synth', icon: 'fas fa-microphone',
+  { label: '合成语音', id: 'synth', icon: 'fas fa-microphone',
     style: 'bg-blue-500/10 border-blue-500/20 text-blue-300 active:bg-blue-500/20' },
-  { label: '🎭 情感分析', id: 'emotion', icon: 'fas fa-theater-masks',
+  { label: '情感分析', id: 'emotion', icon: 'fas fa-theater-masks',
     style: 'bg-purple-500/10 border-purple-500/20 text-purple-300 active:bg-purple-500/20' },
-  { label: '📚 我的作品', id: 'works', icon: 'fas fa-folder-open',
+  { label: '我的作品', id: 'works', icon: 'fas fa-folder-open',
     style: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 active:bg-emerald-500/20' }
 ]
 
 function buildWelcomeMessage() {
   return {
     role: 'ai',
-    text: '你好！我是你的 AI 声音制作人 🎙️\n\n点击下方功能开始，或直接描述你的需求：',
+    text: '你好！我是你的 AI 声音制作人\n\n点击下方功能开始，或直接描述你的需求：',
     actions: [...WELCOME_ACTIONS]
   }
 }
@@ -311,37 +313,37 @@ const inputPlaceholder = computed(() =>
 
 const scenes = [
   {
-    id: 'radio', emoji: '🎧', title: '深夜电台', desc: '治愈独白·情感',
+    id: 'radio', icon: 'fas fa-headphones', iconBg: 'bg-cyan-500/20', title: '深夜电台', desc: '治愈独白·情感',
     borderClass: 'bg-gradient-to-br from-cyan-900/20 to-[#0a0a1a] border-cyan-500/15 active:border-cyan-500/40',
     placeholder: '描述你的电台主题...',
-    quickTags: ['深夜雨天的独白', '一个人的咖啡馆', '给过去的自己写信', '城市夜归人的故事']
+    quickTags: ['深夜雨天的独白', '一个人的咋啡馆', '给过去的自己写信', '城市夜归人的故事']
   },
   {
-    id: 'blessing', emoji: '💌', title: '情感祝福', desc: '生日·表白·问候',
+    id: 'blessing', icon: 'fas fa-envelope', iconBg: 'bg-pink-500/20', title: '情感祝福', desc: '生日·表白·问候',
     borderClass: 'bg-gradient-to-br from-pink-900/20 to-[#0a0a1a] border-pink-500/15 active:border-pink-500/40',
     placeholder: '想送给谁？什么场合？',
     quickTags: ['给女朋友的生日祝福', '送给妈妈的母亲节寄语', '毕业季给好友的话', '表白独白']
   },
   {
-    id: 'video', emoji: '🎬', title: '视频配音', desc: '解说·旁白·Vlog',
+    id: 'video', icon: 'fas fa-video', iconBg: 'bg-orange-500/20', title: '视频配音', desc: '解说·旁白·Vlog',
     borderClass: 'bg-gradient-to-br from-orange-900/20 to-[#0a0a1a] border-orange-500/15 active:border-orange-500/40',
     placeholder: '描述视频内容和风格...',
-    quickTags: ['美食探店解说', '旅行Vlog旁白', '知识科普讲解', '产品开箱评测']
+    quickTags: ['美食探店解说', '旅行Vlog旁白', '知识科普讲解', '产品开笜评测']
   },
   {
-    id: 'story', emoji: '📖', title: '有声故事', desc: '睡前·童话·绘本',
+    id: 'story', icon: 'fas fa-book', iconBg: 'bg-purple-500/20', title: '有声故事', desc: '睡前·童话·绘本',
     borderClass: 'bg-gradient-to-br from-purple-900/20 to-[#0a0a1a] border-purple-500/15 active:border-purple-500/40',
     placeholder: '想听什么故事？',
     quickTags: ['给孩子的睡前童话', '一个温暖的冬日故事', '森林里的小动物', '星空下的冒险']
   },
   {
-    id: 'commerce', emoji: '🛒', title: '带货口播', desc: '产品·直播话术',
+    id: 'commerce', icon: 'fas fa-store', iconBg: 'bg-emerald-500/20', title: '带货口播', desc: '产品·直播话术',
     borderClass: 'bg-gradient-to-br from-emerald-900/20 to-[#0a0a1a] border-emerald-500/15 active:border-emerald-500/40',
     placeholder: '什么产品？卖点？',
     quickTags: ['护肤品种草文案', '美食零食推荐', '数码产品评测口播', '服装穿搭解说']
   },
   {
-    id: 'free', emoji: '✨', title: '自由创作', desc: '聊天·AI帮你想',
+    id: 'free', icon: 'fas fa-pen', iconBg: 'bg-yellow-500/20', title: '自由创作', desc: '聊天·AI帮你想',
     borderClass: 'bg-gradient-to-br from-yellow-900/20 to-[#0a0a1a] border-yellow-500/15 active:border-yellow-500/40',
     placeholder: '告诉我你想做什么...',
     quickTags: ['有哪些音色可以选？', '帮我写段深情独白', '我有哪些作品？', '合成一段语音试试']
@@ -354,11 +356,10 @@ const scenes = [
 
 function handleAction(action) {
   const actionMap = {
-    script:  { local: true, reply: '好的！你想写一段什么主题的台本？\n\n比如：\n• 深夜电台独白\n• 给朋友的生日祝福\n• 产品评测解说\n\n告诉我主题和风格，我马上帮你写 ✍️' },
-    synth:   { local: true, reply: '好的！请发一段文字给我，我帮你合成语音 🎙️\n\n你可以：\n• 直接粘贴一段文字\n• 或者先点「写台本」让我帮你创作' },
-    emotion: { local: true, reply: '好的！请发一段文字给我，我来分析它的情感方向 🎭\n\n分析结果包含：情感标签、推荐语气、适合的音色类型。' },
+    script:  { local: true, reply: '好的！你想写一段什么主题的台本？\n\n比如：\n• 深夜电台独白\n• 给朋友的生日祝福\n• 产品评测解说\n\n告诉我主题和风格，我马上帮你写' },
+    synth:   { local: true, reply: '好的！请发一段文字给我，我帮你合成语音\n\n你可以：\n• 直接粘贴一段文字\n• 或者先点「写台本」让我帮你创作' },
+    emotion: { local: true, reply: '好的！请发一段文字给我，我来分析它的情感方向\n\n分析结果包含：情感标签、推荐语气、适合的音色类型。' },
     works:   { agent: true, command: '请帮我查看我的创作作品列表' },
-    // Post-synthesis actions
     change_voice: { agent: true, command: '请帮我用另一个音色重新合成刚才的内容，换一个风格不同的声音' },
     rewrite:      { agent: true, command: '请帮我重写刚才的台本，换一种风格，然后重新合成语音' }
   }
@@ -381,12 +382,12 @@ function handleAction(action) {
 function applyScene(scene) {
   activeScene.value = scene
   const intros = {
-    radio: '🎧 深夜电台模式\n\n我来帮你制作治愈系的电台内容。\n告诉我你的主题和心情，我会为你写词、选声音、录制成品。\n\n👇 试试下方的快捷标签，或直接描述你想要的内容。',
-    blessing: '💌 情感祝福模式\n\n想送一份特别的声音礼物吗？\n告诉我你想送给谁、什么场合，我帮你写词+选声音+录制！',
-    video: '🎬 短视频配音模式\n\n描述你的视频内容和风格，我来帮你写解说词并配音。',
-    story: '📖 有声故事模式\n\n想听什么样的故事？给孩子的睡前故事还是温暖的治愈故事？告诉我，我来创作。',
-    commerce: '🛒 带货口播模式\n\n告诉我你要推荐的产品和卖点，我帮你写口播文案并配上专业的声音！',
-    free: '✨ 自由创作模式\n\n随便告诉我你想做什么！查音色、写台本、分析情感、合成语音，都可以。'
+    radio:    '深夜电台模式\n\n我来帮你制作治愈系的电台内容。\n告诉我你的主题和心情，我会为你写词、选声音、录制成品。\n\n试试下方的快捷标签，或直接描述你想要的内容。',
+    blessing: '情感祝福模式\n\n想送一份特别的声音礼物吗？\n告诉我你想送给谁、什么场合，我帮你写词+选声音+录制！',
+    video:    '视频配音模式\n\n描述你的视频内容和风格，我来帮你写解说词并配音。',
+    story:    '有声故事模式\n\n想听什么样的故事？给孩子的睡前故事还是温暖的治愈故事？告诉我，我来创作。',
+    commerce: '带货口播模式\n\n告诉我你要推荐的产品和卖点，我帮你写口播文案并配上专业的声音！',
+    free:     '自由创作模式\n\n随便告诉我你想做什么！查音色、写台本、分析情感、合成语音，都可以。'
   }
   messages.value = [{ role: 'ai', text: intros[scene.id] }]
   nextTick(() => updateInputBarHeight())
@@ -502,7 +503,7 @@ async function sendMessage(text) {
   if (!text || !text.trim() || loading.value) return
 
   if (!authStore.isLoggedIn) {
-    toastStore.show('请先登录 ✨')
+    toastStore.show('请先登录')
     router.replace({ name: 'Login', query: { redirect: '/workshop' } })
     return
   }
@@ -513,7 +514,7 @@ async function sendMessage(text) {
   messages.value.push({ role: 'user', text: userMsg })
   await scrollToBottom()
 
-  // ★ Intercept numbered inputs — ONLY as first interaction (no prior user messages)
+  // Intercept numbered inputs — ONLY as first interaction (no prior user messages)
   const isFirstMessage = !messages.value.some((m, i) => m.role === 'user' && i < messages.value.length - 1)
   const numberMap = { '1': 'script', '2': 'synth', '3': 'emotion', '4': 'works' }
   if (isFirstMessage && numberMap[userMsg]) {
@@ -543,8 +544,8 @@ async function sendMessage(text) {
 
       // Pipeline steps
       const steps = []
-      if (reply.includes('台本') || reply.includes('📝')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
-      if (reply.includes('情感') || reply.includes('🎭')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
+      if (reply.includes('台本')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
+      if (reply.includes('情感')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
       if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
       if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
 
@@ -561,10 +562,10 @@ async function sendMessage(text) {
       cleanReply = cleanReply.replace(/（生成完毕.*?）/g, '').trim()
       cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
 
-      // ★ Post-synthesis quick actions
+      // Post-synthesis quick actions
       const postActions = audioUrl ? [
-        { label: '🔄 换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
-        { label: '✏️ 重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
+        { label: '换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
+        { label: '重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
       ] : null
 
       messages.value.push({
@@ -575,19 +576,19 @@ async function sendMessage(text) {
         actions: postActions
       })
 
-      // ★ Auto-play: synthesis complete → immediately play
+      // Auto-play: synthesis complete → immediately play
       if (audioUrl) {
         await nextTick()
         autoPlayAudio(audioUrl)
       }
     } else {
-      messages.value.push({ role: 'ai', text: '😅 请求失败，请稍后重试' })
+      messages.value.push({ role: 'ai', text: '请求失败，请稍后重试' })
     }
   } catch (err) {
     console.error('Agent chat error:', err)
     messages.value.push({
       role: 'ai',
-      text: '😅 网络或服务异常，请稍后重试\n' + (err.response?.data?.message || err.message || '')
+      text: '网络或服务异常，请稍后重试\n' + (err.response?.data?.message || err.message || '')
     })
   } finally {
     loading.value = false
@@ -635,8 +636,8 @@ async function regenerate(aiMsgIdx) {
       audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
 
       const steps = []
-      if (reply.includes('台本') || reply.includes('📝')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
-      if (reply.includes('情感') || reply.includes('🎭')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
+      if (reply.includes('台本')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
+      if (reply.includes('情感')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
       if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
       if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
 
@@ -651,8 +652,8 @@ async function regenerate(aiMsgIdx) {
       cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
 
       const postActions = audioUrl ? [
-        { label: '🔄 换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
-        { label: '✏️ 重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
+        { label: '换个音色', id: 'change_voice', icon: 'fas fa-redo', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
+        { label: '重写台本', id: 'rewrite', icon: 'fas fa-pen', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
       ] : null
 
       messages.value.push({
@@ -667,7 +668,7 @@ async function regenerate(aiMsgIdx) {
       }
     }
   } catch (err) {
-    messages.value.push({ role: 'ai', text: '😅 重新生成失败，请稍后重试' })
+    messages.value.push({ role: 'ai', text: '重新生成失败，请稍后重试' })
   } finally {
     loading.value = false
     stopLoadingStages()
