@@ -4,6 +4,79 @@
 
 ---
 
+## [2026-03-12] — AI 音乐歌名生成 + 前端性能优化 + AI 接口超时修复
+
+### ✨ 新功能
+
+#### AI 音乐自动生成歌名（`feat: AI 音乐自动生成歌名`）
+
+| 文件 | 改动 |
+|------|------|
+| `MusicLyricAgent.java` | 系统 Prompt 要求 LLM 第一行输出 `TITLE: <歌名>`，一次调用同时生成歌名+歌词 |
+| `MusicService.java` | 正则解析 `TITLE:` 行，返回 `{title, lyrics}`；`submitGenerate` 优先使用 AI 歌名 |
+| `MusicController.java` | `GenerateRequest` 新增 `title` 字段，接收前端传入的歌名 |
+| `Music.vue` | AI 写词后自动回填歌名，歌词卡底部显示「✨ AI 歌名」可编辑输入框；提交时透传 title |
+
+**降级策略**：LLM 未按格式输出 `TITLE:` 时，自动截取 prompt 前 25 字作为标题。
+
+---
+
+### ⚡ 性能优化（`perf: 前端全面性能优化`）
+
+| 文件 | 优化点 |
+|------|--------|
+| `Discover.vue` | 预计算波浪高度（避免模板内 Math.random）；`v-memo` 优化列表渲染；图片 `loading="lazy"`；IntersectionObserver 无限滚动替代「加载更多」按钮 |
+| `App.vue` | `<keep-alive>` 缓存 Home/Discover/VoiceLibrary 页面，切换时不重新挂载 |
+| `vite.config.js` | `manualChunks` 拆分 vue/vue-router/pinia/axios 为独立 chunk；`cssCodeSplit: true` |
+| `request.js` | 全局默认超时从 60s 降至 10s（AI 接口单独配置） |
+| `player.js` | `timeupdate` 事件 500ms 节流，减少 Pinia 无效更新 |
+
+---
+
+### 🐛 修复
+
+#### AI 接口超时修复（`fix: AI接口超时修复`）
+
+| 接口 | 超时配置 |
+|------|---------|
+| `music.generate` | 60s |
+| `music.generateLyrics` | 60s |
+| `tts.synthesizeShort` | 30s |
+| `tts.submitLongText` | 30s |
+| `tts.preview` | 20s |
+| `tts.generatePodcast` | 120s |
+| `studio.generateOutline` | 60s |
+
+> 全局默认 10s，AI 长耗时接口单独覆盖，防止被截断。
+
+---
+
+## [2026-03-11] — 支付可靠性重构 + 邀请码注册 + WebSocket 修复
+
+### 🔒 支付可靠性三层防护（`VipService.java`）
+
+| 防护层 | 实现 |
+|--------|------|
+| RSA2 验签 | 调用支付宝 SDK `AlipaySignature.rsaCheckV1()` 验证签名，防伪造回调 |
+| DB CAS 幂等 | `UPDATE vip_order SET status='paid' WHERE status='pending'` 原子更新，防重复处理 |
+| `@Transactional` | 事务异常自动回滚，保证订单/VIP 状态最终一致 |
+
+### 🎫 注册方式改为邀请码（`AuthService.java`）
+
+| 改动 | 说明 |
+|------|------|
+| 移除短信验证码注册 | 原 `sendCode` / SMS 验证逻辑全部移除 |
+| 改为邀请码制 | 注册时校验 `invite_code` 表，有效时扣减使用次数（`times_left - 1`） |
+| 新增 `invite_code` 表 | `V14__invite_code.sql`，含 `code/creator_id/times_left/expired_at` |
+| 昵称生成 | 使用手机号后 4 位生成默认昵称 |
+
+### 🔧 WebSocket 修复（`PodcastWebSocketHandler.java`）
+
+为 R2 音频上传专用线程池添加 `@Autowired` 注解，解决 Lombok 无法推断 `@Qualifier` 导致 Bean 注入失败的问题。
+
+---
+
+
 ## [2026-03-09 Round 4] — 小说发布/下架修复 + 代码规范清理
 
 ### 📋 背景
