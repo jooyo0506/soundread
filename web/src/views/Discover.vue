@@ -175,9 +175,7 @@
               <div class="h-24 relative overflow-hidden bg-gradient-to-br from-fuchsia-900/50 via-pink-900/30 to-violet-900/20">
                 <div class="absolute top-0 right-0 w-16 h-16 bg-fuchsia-400/8 rounded-full blur-xl -mr-4 -mt-4"></div>
                 <div class="absolute inset-0 flex flex-col justify-between p-3">
-                  <span class="inline-flex items-center gap-1 text-[8px] font-bold text-fuchsia-300/80 bg-fuchsia-500/10 px-1.5 py-0.5 rounded w-fit">
-                    <i class="fas fa-music"></i> 音乐
-                  </span>
+                  <span class="inline-flex items-center gap-1 text-[8px] font-bold text-fuchsia-300/80 bg-fuchsia-500/10 px-1.5 py-0.5 rounded w-fit">音乐</span>
                   <h4 class="text-white text-xs font-bold line-clamp-2 leading-snug">{{ work.title }}</h4>
                 </div>
                 <div class="absolute inset-0 bg-black/40 flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -187,7 +185,7 @@
                 </div>
               </div>
               <div class="px-2.5 py-2">
-                <p class="text-[9px] text-gray-500 line-clamp-1 mb-1.5">{{ work.description || 'AI 音乐' }}</p>
+
                 <div class="flex items-center justify-between text-[9px] text-gray-600">
                   <div class="flex items-center gap-1.5">
                     <span class="flex items-center gap-0.5"><i class="fas fa-play text-[7px]"></i> {{ formatNumber(work.playCount) }}</span>
