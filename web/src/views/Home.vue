@@ -27,13 +27,12 @@
           <!-- 标题区 -->
           <div class="flex items-center gap-2.5 mb-4">
             <div class="agent-icon">
-              🎙️
+              <i class="fas fa-microphone text-xl text-cyan-400"></i>
               <span class="agent-pulse"></span>
             </div>
             <div>
               <div class="flex items-center gap-1.5">
                 <h2 class="text-base font-black text-white">AI 声音制作人</h2>
-                <span class="agent-badge">Agent</span>
               </div>
               <p class="text-[10px] text-cyan-400/80 mt-0.5">理解你的意图 · 自动创作有声内容</p>
             </div>
@@ -56,16 +55,16 @@
             <button v-for="scene in quickScenes" :key="scene.label"
                     @click="goWorkshop(scene.text)"
                     class="scene-chip">
-              {{ scene.emoji }} {{ scene.label }}
+              {{ scene.label }}
             </button>
           </div>
 
           <!-- 底部 — 能力标签 + 音色入口 -->
           <div class="flex items-center justify-between mt-4 pt-3 border-t border-white/5">
             <div class="flex items-center gap-3">
-              <div v-for="cap in capabilities" :key="cap"
-                   class="flex items-center gap-1 text-[9px] text-cyan-400/50">
-                <i class="fas fa-check-circle text-[8px] text-cyan-500/50"></i>
+              <div v-for="(cap, i) in capabilities" :key="cap"
+                   class="flex items-center gap-2 text-[9px] text-cyan-400/50">
+                <span v-if="i > 0" class="w-px h-2.5 bg-white/10"></span>
                 {{ cap }}
               </div>
             </div>
@@ -130,9 +129,7 @@
       ══════════════════════════════════ -->
       <div v-if="featuredWorks.length > 0">
         <div class="flex justify-between items-center mb-2.5">
-          <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
-            <i class="fas fa-fire text-orange-400 text-[9px]"></i> 推荐收听
-          </p>
+          <p class="text-[10px] font-bold text-gray-600 uppercase tracking-widest">推荐收听</p>
           <router-link to="/discover" class="text-[10px] text-gray-600 hover:text-[#FF9500] transition-colors">
             更多 <i class="fas fa-chevron-right text-[8px]"></i>
           </router-link>
@@ -190,17 +187,17 @@ const playerStore = usePlayerStore()
 
 const greeting = computed(() => {
   const h = new Date().getHours()
-  if (h < 6) return '夜深了，还在创作？🌙'
-  if (h < 12) return '早安，开启创意的一天 ✨'
+  if (h < 6) return '夜深了，还在创作？'
+  if (h < 12) return '早安，开启创意的一天'
   if (h < 18) return '下午好，有什么想创作？'
-  return '晚上好，来点有声内容吧 🎙️'
+  return '晚上好，来点有声内容吧'
 })
 
 const quickScenes = [
-  { emoji: '🌙', label: '深夜电台', text: '帮我录一段深夜情感电台独白' },
-  { emoji: '💌', label: '情感祝福', text: '帮我录一段生日祝福语音卡片' },
-  { emoji: '🎬', label: '短视频配音', text: '帮我做一段短视频励志旁白' },
-  { emoji: '📖', label: '有声故事', text: '帮我创作一个睡前童话故事' },
+  { label: '深夜电台', text: '帮我录一段深夜情感电台独白' },
+  { label: '情感祝福', text: '帮我录一段生日祝福语音卡片' },
+  { label: '短视频配音', text: '帮我做一段短视频励志旁白' },
+  { label: '有声故事', text: '帮我创作一个睡前童话故事' },
 ]
 
 // 轮播展示场景提示词

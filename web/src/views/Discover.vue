@@ -22,7 +22,7 @@
           <div class="absolute top-0 right-0 w-28 h-28 bg-yellow-400/20 rounded-full blur-2xl -mr-8 -mt-8"></div>
           <div class="absolute bottom-0 left-0 w-20 h-20 bg-orange-600/30 rounded-full blur-xl -ml-6 -mb-6"></div>
           <div class="relative z-10 p-4 h-full flex flex-col justify-between">
-            <span class="text-[9px] font-bold text-white/80 bg-black/20 px-2 py-0.5 rounded-full w-fit backdrop-blur-sm">🔥 每日推荐</span>
+            <span class="text-[9px] font-bold text-white/80 bg-black/20 px-2 py-0.5 rounded-full w-fit backdrop-blur-sm">每日推荐</span>
             <div>
               <h3 class="text-white font-bold text-base leading-tight mb-0.5">发现好声音</h3>
               <p class="text-white/70 text-[10px]">AI 创作 · 播客 · 小说 · 音乐</p>
@@ -69,12 +69,11 @@
         <button
           v-for="cat in categories" :key="cat.key"
           @click="switchCategory(cat)"
-          class="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer"
+          class="px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer"
           :class="activeCategory === cat.key
             ? 'bg-[#FF9500] text-black shadow-[0_2px_10px_rgba(255,149,0,0.25)]'
             : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'"
         >
-          <i :class="cat.icon" class="text-[9px]"></i>
           {{ cat.name }}
         </button>
       </div>
