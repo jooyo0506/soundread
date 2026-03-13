@@ -483,7 +483,10 @@ const handlePlay = async (work) => {
 }
 
 const handleLike = async (work) => {
-    if (!authStore.isLoggedIn) return router.replace('/login')
+    if (!authStore.isLoggedIn) {
+        toastStore.show('请先登录即可体验点赞功能')
+        return router.replace('/login')
+    }
     work.isLiked = !work.isLiked
     work.likeCount += (work.isLiked ? 1 : -1)
     try {
