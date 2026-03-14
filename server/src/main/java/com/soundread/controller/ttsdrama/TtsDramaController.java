@@ -5,6 +5,7 @@ import com.soundread.model.entity.UserCreation;
 import com.soundread.model.entity.User;
 import com.soundread.service.AuthService;
 import com.soundread.service.CreationService;
+import com.soundread.service.QuotaService;
 import com.soundread.service.StorageQuotaService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,11 @@ import org.springframework.web.bind.annotation.*;
  * 支持多行对话剧本按角色分别指定音色进行合成，
  * 最终拼合为一段完整的戏剧音频。
  * </p>
+ *
+ * <p>
+ * 配额消耗：短剧合成使用 seed-tts-2.0（TTS 2.0 情感引擎），
+ * 消耗 {@code tts_v2} 每日字数配额，与情感调音台共用同一池子。
+ * </p>
  */
 @Slf4j
 @RestController
@@ -29,6 +35,7 @@ public class TtsDramaController {
     private final AuthService authService;
     private final CreationService creationService;
     private final StorageQuotaService storageQuotaService;
+    private final QuotaService quotaService;
 
     @PostMapping("/synthesize")
     public Result<TtsDramaResponse> synthesizeDrama(
@@ -41,9 +48,12 @@ public class TtsDramaController {
                 return Result.fail("台词列表不能为空");
             }
             User user = authService.getCurrentUser();
-            // 粗略估算存储占用：每字符约 200 字节
+            // 计算所有台词总字数
             int totalChars = request.getLines().stream()
                     .mapToInt(l -> l.getContent() != null ? l.getContent().length() : 0).sum();
+            // 短剧使用 seed-tts-2.0（TTS 2.0 情感引擎），消耗 tts_v2 每日字数配额
+            quotaService.checkAndDeductTextV2Quota(user, totalChars);
+            // 检查存储空间（每字符约 200 字节）
             storageQuotaService.checkStorageQuota(user, totalChars * 200L);
             TtsDramaResponse response = ttsDramaService.synthesizeDrama(request);
 
