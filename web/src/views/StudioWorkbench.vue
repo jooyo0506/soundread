@@ -1963,7 +1963,7 @@ const synthesizeChunkWithEmotion = async (text, voiceId, emotion) => {
       voiceType: voiceId,
       mode: useEmotion ? 'voice_command' : 'default',
       userKey: authStore.user?.id?.toString() || 'anonymous'
-    })
+    }, { timeout: 60000 })
     return data?.audioUrl
   } else {
     const res = await ttsApi.synthesizeShort({ text: cleanText, voiceId })

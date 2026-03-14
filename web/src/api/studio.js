@@ -137,13 +137,13 @@ export const studioApi = {
     unpublishProject: (id) => request.post(`/studio/projects/${id}/unpublish`),
 
     /** 解析广播剧剧本 — 提取角色+对白 */
-    parseScript: (sectionId) => request.post('/studio/parse-script', { sectionId }),
+    parseScript: (sectionId) => request.post('/studio/parse-script', { sectionId }, { timeout: 60000 }),
 
     /** 清理文本元数据 — 返回纯朗读文本 */
     stripForTTS: (content) => request.post('/studio/strip-for-tts', { content }),
 
     /** 音频拼接：多段 MP3 → 单文件 */
-    concatAudio: (audioUrls) => request.post('/studio/concat-audio', { audioUrls }),
+    concatAudio: (audioUrls) => request.post('/studio/concat-audio', { audioUrls }, { timeout: 120000 }),
 
     /** 上传音频文件到 R2（播客发布用） */
     uploadAudio: (blob, filename = 'podcast.mp3') => {
