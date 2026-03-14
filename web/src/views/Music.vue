@@ -89,7 +89,7 @@
           <!-- AI 自动回填的歌名（生成歌词后展示） -->
           <Transition name="slide-down">
             <div v-if="songTitle" class="flex items-center gap-2 pt-2.5 mt-2.5 border-t border-fuchsia-500/20">
-              <span class="text-[10px] shrink-0 text-fuchsia-400 font-bold">✨ AI 歌名</span>
+              <span class="text-[10px] shrink-0 text-fuchsia-400 font-bold">AI 歌名</span>
               <input v-model="songTitle" maxlength="50"
                      class="flex-1 text-sm font-bold text-white bg-transparent focus:outline-none placeholder-gray-600 min-w-0"
                      placeholder="歌名" />
@@ -111,7 +111,7 @@
         </template>
         <template v-else>
           <i class="fas fa-sparkles mr-2 text-sm"></i>
-          {{ mode === 'song' ? '🎤 生成歌曲' : '🎼 生成纯音乐' }}
+          {{ mode === 'song' ? '生成歌曲' : '生成纯音乐' }}
         </template>
       </button>
 
@@ -140,7 +140,7 @@
             <div class="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
               <i class="fas fa-check text-green-400 text-[10px]"></i>
             </div>
-            <span class="text-sm font-bold text-green-400">🎉 创作完成！</span>
+            <span class="text-sm font-bold text-green-400">创作完成</span>
           </div>
           <button @click="playResult(currentTask)"
                   class="text-xs font-bold text-white bg-green-500/80 px-3 py-1.5 rounded-full hover:bg-green-500 transition-colors cursor-pointer flex items-center gap-1.5 shadow-[0_2px_10px_rgba(34,197,94,0.3)]">
@@ -200,7 +200,7 @@
                 </span>
               </div>
               <p class="text-[10px] text-gray-500 flex items-center gap-2">
-                <span>{{ task.taskType === 'song' ? '🎤 歌曲' : '🎼 纯音乐' }}</span>
+                <span>{{ task.taskType === 'song' ? '歌曲' : '纯音乐' }}</span>
                 <span v-if="task.duration">{{ formatDuration(task.duration) }}</span>
                 <span>{{ formatTime(task.createdAt) }}</span>
               </p>
@@ -321,7 +321,7 @@ const displayedTasks = computed(() =>
 )
 
 const promptTags = ['pop', 'r&b', 'rock', 'jazz', 'classical', 'electronic', 'hip-hop', 'folk', 'Chinese', 'slow', 'energetic']
-const tagEmoji = { pop: '🎵', 'r&b': '🌙', rock: '🎸', jazz: '🎷', classical: '🎻', electronic: '⚡', 'hip-hop': '🎤', folk: '🪕', Chinese: '🉐', slow: '💤', energetic: '🔥' }
+const tagEmoji = {}
 
 const parseTags = () => prompt.value.split(/[,，]/).map(s => s.trim()).filter(Boolean)
 const hasTag = (tag) => parseTags().some(t => t.toLowerCase() === tag.toLowerCase())
@@ -344,7 +344,7 @@ const startGenerate = async () => {
     })
     const displayTitle = songTitle.value || prompt.value.substring(0, 20)
     currentTask.value = { id: res.taskId, status: res.status, title: displayTitle }
-    toastStore.show('🎵 任务已提交，AI 正在创作中...')
+    toastStore.show('任务已提交，AI 正在创作中...')
     startPolling()
     loadTasks()
   } catch (e) {
@@ -362,9 +362,9 @@ const aiGenerateLyrics = async () => {
     // 自动回填 AI 生成的歌名
     if (res.title) {
       songTitle.value = res.title
-      toastStore.show('✨ 歌词和歌名已生成')
+      toastStore.show('歌词和歌名已生成')
     } else {
-      toastStore.show('✨ 歌词生成完成')
+      toastStore.show('歌词生成完成')
     }
   } catch (e) {
     toastStore.show('歌词生成失败: ' + (e.message || '请重试'))
@@ -425,7 +425,7 @@ const saveRename = async () => {
     const t = tasks.value.find(t => t.id === actionTask.value.id)
     if (t) t.title = editTitle.value.trim()
     actionTask.value.title = editTitle.value.trim()
-    toastStore.show('✅ 已重命名')
+    toastStore.show('已重命名')
   } catch (e) {
     toastStore.show('重命名失败: ' + (e.response?.data?.message || e.message))
   } finally {
@@ -440,7 +440,7 @@ const publishFromSheet = async () => {
     actionTask.value.published = true
     const t = tasks.value.find(t => t.id === actionTask.value.id)
     if (t) t.published = true
-    toastStore.show('🎉 已上架到发现页')
+    toastStore.show('已上架到发现页')
     actionTask.value = null
   } catch (e) {
     toastStore.show('上架失败: ' + (e.response?.data?.message || e.message || '请重试'))
@@ -474,9 +474,9 @@ const startPolling = () => {
     currentTask.value = completedTask
     await loadTasks()
     if (completedTask.status === 'succeeded') {
-      toastStore.show('🎉 音乐创作完成！')
+      toastStore.show('音乐创作完成')
     } else if (completedTask.status === 'failed') {
-      toastStore.show('❌ 音乐生成失败')
+      toastStore.show('音乐生成失败')
     }
   })
 }
