@@ -807,15 +807,27 @@ public class StudioService {
         // 单段内容直接使用项目标题；多段内容按「第N段」命名
         String typeCode = project.getTypeCode();
         boolean isSingleContent = "radio".equals(typeCode) || "lecture".equals(typeCode)
-                || "ad".equals(typeCode) || "picture_book".equals(typeCode) || "news".equals(typeCode);
+                || "ad".equals(typeCode) || "picture_book".equals(typeCode) || "news".equals(typeCode)
+                || "drama".equals(typeCode);
         String title = isSingleContent ? project.getTitle() : "第" + (nextIndex + 1) + " 段";
         String content = rawOutput;
 
-        if (rawOutput != null && rawOutput.startsWith("##")) {
+        // 提取 AI 生成的标题（支持 # 标题 或 ## 标题）
+        if (rawOutput != null && rawOutput.startsWith("#")) {
             int newline = rawOutput.indexOf('\n');
             if (newline > 0) {
-                title = rawOutput.substring(2, newline).trim();
+                // 提取第一行并去掉所有的 # 和空格
+                String parsedTitle = rawOutput.substring(0, newline).replaceAll("^#+\\s*", "").trim();
+                if (!parsedTitle.isBlank()) {
+                    title = parsedTitle;
+                }
                 content = rawOutput.substring(newline + 1).trim();
+
+                // 如果是广播剧等单点触发全文的作品，同时更新项目的总标题，保持一致性
+                if (isSingleContent || "drama".equals(typeCode)) {
+                    project.setTitle(title);
+                    projectMapper.updateById(project);
+                }
             }
         }
 
