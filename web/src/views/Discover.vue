@@ -341,6 +341,29 @@ const toastStore = useToastStore()
 const authStore = useAuthStore()
 const playerStore = usePlayerStore()
 
+// ==================== 发现页 sessionStorage 缓存（游客多次刷新优化） ====================
+
+const DISC_CACHE_TTL = 120_000 // 120 秒
+
+const discCacheKey = (category) => `discover:${category}:p1`
+
+const readDiscCache = (category) => {
+    try {
+        const raw = sessionStorage.getItem(discCacheKey(category))
+        if (!raw) return null
+        const { ts, data } = JSON.parse(raw)
+        if (Date.now() - ts < DISC_CACHE_TTL) return data
+        sessionStorage.removeItem(discCacheKey(category))
+    } catch { }
+    return null
+}
+
+const writeDiscCache = (category, data) => {
+    try {
+        sessionStorage.setItem(discCacheKey(category), JSON.stringify({ ts: Date.now(), data }))
+    } catch { }
+}
+
 // ==================== 波形预计算（只初始化一次，防止重渲染跳变） ====================
 
 /** 顶部横幅波形高度（6条，固定值） */
@@ -404,6 +427,18 @@ const loading = ref(false)
 
 const loadWorks = async () => {
     if (loading.value || !hasMore.value) return
+
+    // 游客请求第一页时，优先读 sessionStorage 缓存
+    if (!authStore.isLoggedIn && page.value === 1) {
+        const cached = readDiscCache(activeCategory.value)
+        if (cached) {
+            works.value = cached
+            page.value = 2          // 下次滚动从第 2 页继续
+            hasMore.value = true
+            return
+        }
+    }
+
     loading.value = true
     try {
         const params = { page: page.value, size: 10, sort: 'hot' }
@@ -413,6 +448,10 @@ const loadWorks = async () => {
         const res = await discoverApi.getWorks(params)
         if (res.records && res.records.length > 0) {
             works.value.push(...res.records)
+            // 仅游客第一页写缓存
+            if (!authStore.isLoggedIn && page.value === 1) {
+                writeDiscCache(activeCategory.value, res.records)
+            }
             page.value++
             if (res.records.length < 10) hasMore.value = false
         } else {

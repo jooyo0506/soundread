@@ -216,14 +216,46 @@ const goWorkshop = (text) => {
 }
 const onVoiceSelected = (voice) => { quickVoice.value = voice }
 
+// ── 首页发现数据缓存（游客离线刷新优化） ──
+const SESSION_KEY = 'home:featured'
+const CACHE_TTL_MS = 120_000 // 120 秒
+
+const readHomeCache = () => {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const { ts, data } = JSON.parse(raw)
+    if (Date.now() - ts < CACHE_TTL_MS) return data
+    sessionStorage.removeItem(SESSION_KEY)
+  } catch { }
+  return null
+}
+
+const writeHomeCache = (data) => {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now(), data }))
+  } catch { }
+}
+
 const featuredWorks = ref([])
 const loadFeaturedWorks = async () => {
+  // 登录用户不读缓存（isLiked 等状态需实时）
+  if (!authStore.isLoggedIn) {
+    const cached = readHomeCache()
+    if (cached) {
+      featuredWorks.value = cached
+      return
+    }
+  }
   try {
     const res = await discoverApi.getWorks({ page: 1, size: 10, sort: 'hot' })
     if (res.records?.length > 0) {
-      featuredWorks.value = res.records
+      const filtered = res.records
         .filter(w => w.audioUrl && w.audioDuration && w.audioDuration >= 30)
         .slice(0, 6)
+      featuredWorks.value = filtered
+      // 仅游客写入缓存
+      if (!authStore.isLoggedIn) writeHomeCache(filtered)
     }
   } catch { }
 }
