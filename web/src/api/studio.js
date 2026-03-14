@@ -4,6 +4,15 @@ import request from './request'
 const TOKEN_KEY = 'sr_token'
 
 /**
+ * SSE fetch 基础 URL
+ * axios 通过 VITE_API_BASE_URL 正确指向 joyoai.xyz/api
+ * 但 fetch() 不经过 axios，必须手动加上绝对 URL
+ * 否则相对路径 /api/... 会解析为 www.joyoai.xyz/api/...（Cloudflare Pages 静态域名）
+ * 导致 Cloudflare Pages 对 POST 返回 405，后端完全不被调用
+ */
+const SSE_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+
+/**
  * 获取完整的 Authorization 头值
  * 统一处理 Bearer 前缀，避免各处重复逻辑
  */
@@ -72,7 +81,7 @@ export const studioApi = {
     generateContent: async (projectId, data) => {
         // data 可以是 string（兼容旧模式）或 object（结构化模式）
         const body = typeof data === 'string' ? { input: data } : data
-        const resp = await fetch(`/api/studio/projects/${projectId}/generate`, {
+        const resp = await fetch(`${SSE_BASE}/studio/projects/${projectId}/generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -85,7 +94,7 @@ export const studioApi = {
 
     /** 广播剧一键生成 — 对话驱动模式（SSE 流式） */
     generateDrama: async (projectId, data) => {
-        const resp = await fetch(`/api/studio/projects/${projectId}/drama-generate`, {
+        const resp = await fetch(`${SSE_BASE}/studio/projects/${projectId}/drama-generate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -98,7 +107,7 @@ export const studioApi = {
 
     /** AI 改写段落 (SSE 流式) */
     rewriteSection: async (sectionId, instruction) => {
-        const resp = await fetch(`/api/studio/sections/${sectionId}/rewrite`, {
+        const resp = await fetch(`${SSE_BASE}/studio/sections/${sectionId}/rewrite`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
