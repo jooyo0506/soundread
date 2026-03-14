@@ -1832,6 +1832,15 @@ const generateDramaScript = async () => {
     // 复用全局 SSE 读取工具，正确处理 Nginx 缓冲/分块等边界情况
     dramaStreamContent.value = await readSseStreamFull(resp)
 
+    // 检测后端错误标记（后端 catch 块发送的错误事件）
+    if (dramaStreamContent.value.includes('[DRAMA_ERROR]')) {
+      const errMatch = dramaStreamContent.value.match(/\[DRAMA_ERROR\](.+)/)
+      throw new Error(errMatch ? errMatch[1].trim() : '剧本生成失败，请重试')
+    }
+    if (!dramaStreamContent.value.trim()) {
+      throw new Error('剧本生成失败：服务器未返回内容，请检查账号权限或稍后重试')
+    }
+
     dramaFinished.value = true
     dramaShowFull.value = true // 自动展开全文阅读
     dramaSettingsChanged.value = false // 重置变更标记

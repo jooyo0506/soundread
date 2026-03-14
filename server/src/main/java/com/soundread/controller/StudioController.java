@@ -203,6 +203,12 @@ public class StudioController {
                     req.getGenreTips(), req.getCharacters(), req.getInspiration(), emitter);
         } catch (Exception e) {
             log.error("广播剧生成失败: ", e);
+            try {
+                // 发送错误事件，让前端能正确展示失败原因而非显示"0字"
+                String errMsg = e.getMessage() != null ? e.getMessage() : "生成失败，请重试";
+                emitter.send(SseEmitter.event().data("[DRAMA_ERROR]" + errMsg));
+            } catch (Exception ignored) {
+            }
             emitter.completeWithError(e);
         }
         return emitter;

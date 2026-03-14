@@ -147,7 +147,9 @@ public class QuotaService {
     private int getQuotaLimit(User user, String type) {
         com.soundread.model.entity.SysTierPolicy policy = tierPolicyService.getByTierCode(user.getTierCode());
         if (policy == null || policy.getQuotaLimits() == null) {
-            return 0; // 找不到策略则默认限额0
+            // 找不到策略时返回 -1（无限制），避免配置缺失导致所有功能被封锁
+            log.warn("[QuotaService] 未找到用户配额策略: userId={} tierCode={}", user.getId(), user.getTierCode());
+            return -1;
         }
         return switch (type) {
             case "ttsDailyChars" -> policy.getQuotaLimits().getTtsDailyChars();
