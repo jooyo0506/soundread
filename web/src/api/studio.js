@@ -26,6 +26,16 @@ async function handleSseResponse(resp) {
         throw new Error('请先登录')
     }
 
+    // 405 Method Not Allowed：通常是 AOP 切面在 SSE 端点上抛异常导致的权限拦截
+    if (resp.status === 405) {
+        throw new Error('功能权限不足或服务暂不可用（405），请联系管理员检查套餐配置')
+    }
+
+    // 其他 HTTP 错误（4xx / 5xx）
+    if (!resp.ok) {
+        throw new Error(`请求失败 (${resp.status})，请稍后重试`)
+    }
+
     // Content-Type 嗅探: 如果返回 JSON 说明触发了业务异常
     const ct = resp.headers.get('content-type') || ''
     if (ct.includes('application/json')) {
