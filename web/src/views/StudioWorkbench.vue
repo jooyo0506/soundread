@@ -2485,11 +2485,10 @@ const generateChapterOutlines = async () => {
         }
       }
     }
-    if (buffer.startsWith('data:')) {
-      fullText += buffer.substring(5)
-      outlineStreamText.value = fullText
+    // 修复：残留缓冲区可能包含多行，逐行处理避免丢失
+    for (const line of buffer.split('\n')) {
+      if (line.startsWith('data:')) { fullText += line.substring(5); outlineStreamText.value = fullText }
     }
-    
     console.debug('[Novel] 细纲原始:', fullText.substring(0, 500))
     const cleaned = sanitizeJsonFromAI(fullText)
     console.debug('[Novel] 细纲清洗:', cleaned.substring(0, 500))
@@ -2624,8 +2623,10 @@ const generateFromOutline = async () => {
       }
       nextTick(() => { const el = streamContentRef.value; if (el) el.scrollTop = el.scrollHeight })
     }
-    // 处理缓冲区残留
-    if (buffer.startsWith('data:')) streamContent.value += buffer.substring(5)
+    // 修复：残留缓冲区逐行处理，避免多行时丢失内容
+    for (const line of buffer.split('\n')) {
+      if (line.startsWith('data:')) streamContent.value += line.substring(5)
+    }
     userInput.value = ''
     chapterTitle.value = ''
     await loadSections()
@@ -2997,13 +2998,15 @@ const generate = async () => {
       // 自动滚动到最新内容
       nextTick(() => { const el = streamContentRef.value; if (el) el.scrollTop = el.scrollHeight })
     }
-    // 处理缓冲区残留（最后一行可能没有换行符结尾）
-    if (buffer.startsWith('data:')) {
-      let text = buffer.substring(5)
-      if (project.value?.typeCode === 'radio') {
-        text = text.replace(/^#{1,3}\s*/gm, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    // 修复：残留缓冲区逐行处理，避免多行时丢失内容
+    for (const line of buffer.split('\n')) {
+      if (line.startsWith('data:')) {
+        let text = line.substring(5)
+        if (project.value?.typeCode === 'radio') {
+          text = text.replace(/^#{1,3}\s*/gm, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+        }
+        streamContent.value += text
       }
-      streamContent.value += text
     }
 
     userInput.value = ''; chapterTitle.value = ''; await loadSections(); await loadProject()
@@ -3033,23 +3036,8 @@ const rewrite = async (instruction) => {
 
   try {
     const resp = await studioApi.rewriteSection(activeSection.value.id, instruction)
-    const reader = resp.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = '' // buffer：防止 TCP 分片把 data: 行切断后丢失内容
-    controller.signal.addEventListener('abort', () => { try { reader.cancel() } catch {} })
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      clearTimeout(timeout)
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() // 保留不完整的行，等待下一个 chunk 补齐
-      for (const line of lines) {
-        if (line.startsWith('data:')) streamContent.value += line.substring(5)
-      }
-    }
-    // 处理缓冲区残留
-    if (buffer.startsWith('data:')) streamContent.value += buffer.substring(5)
+    // 改写无需实时展示，直接复用可靠的通用 SSE 读取工具
+    streamContent.value = await readSseStreamFull(resp)
     await loadSections()
     activeSection.value = sections.value.find(s => s.id === activeSection.value.id) || null
     toastStore.show('改写完成 ✏️'); activeTab.value = 'content'
