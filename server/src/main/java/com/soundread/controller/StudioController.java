@@ -1,7 +1,6 @@
 package com.soundread.controller;
 
 import com.soundread.common.Result;
-import com.soundread.common.RequireFeature;
 import com.soundread.model.entity.CreativeTemplate;
 import com.soundread.model.entity.StudioProject;
 import com.soundread.model.entity.StudioSection;
@@ -10,6 +9,7 @@ import com.soundread.service.AuthService;
 import com.soundread.service.QuotaService;
 import com.soundread.service.ScriptParser;
 import com.soundread.service.StudioService;
+import com.soundread.service.TierPolicyService;
 import com.soundread.adapter.R2StorageAdapter;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +41,7 @@ public class StudioController {
     private final StudioService studioService;
     private final AuthService authService;
     private final QuotaService quotaService;
+    private final TierPolicyService tierPolicyService;
 
     private static final long SSE_TIMEOUT_MS = 5 * 60 * 1000L;
 
@@ -189,14 +190,27 @@ public class StudioController {
 
     /**
      * 广播剧一键生成 — 对话驱动模式（SSE 流式）
+     * <p>
+     * ⚠️ 不使用 @RequireFeature AOP：AOP 在 SSE 端点上抛出异常时，
+     * Spring MVC 内容类型协商失败会导致返回空响应，前端无法感知错误。
+     * 改为在方法内部检查，与 TtsController.generateAiScript 保持一致。
+     * </p>
      */
-    @RequireFeature("ai_drama")
     @PostMapping(value = "/projects/{id}/drama-generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateDrama(@PathVariable Long id, @RequestBody DramaGenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         try {
-            // 配额检查：广播剧属于工作台内容生成，消耗 ai_script 次数
             User user = authService.getCurrentUser();
+
+            // 功能权限校验（内联检查，避免 AOP + SSE 的内容协商冲突）
+            if (!tierPolicyService.hasFeature(user.getTierCode(), "ai_drama")) {
+                log.info("[广播剧] 功能未开通: userId={}, tierCode={}", user.getId(), user.getTierCode());
+                emitter.send(SseEmitter.event().data("[DRAMA_ERROR]当前套餐未开通广播剧功能，请升级会员"));
+                emitter.complete();
+                return emitter;
+            }
+
+            // 配额检查：广播剧属于工作台内容生成，消耗 ai_script 次数
             quotaService.checkAndDeductAiScriptQuota(user);
 
             studioService.generateDrama(id, req.getDialogueMode(), req.getGenre(),
