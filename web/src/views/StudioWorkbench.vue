@@ -1828,23 +1828,10 @@ const generateDramaScript = async () => {
       characters,
       inspiration: editableInspiration.value || project.value?.inspiration || ''
     })
-    const reader = resp.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() // 保留未完成的行
-      for (const line of lines) {
-        if (line.startsWith('data:')) {
-          dramaStreamContent.value += line.substring(5)
-        }
-      }
-    }
-    // 处理缓冲区残留
-    if (buffer.startsWith('data:')) dramaStreamContent.value += buffer.substring(5)
+
+    // 复用全局 SSE 读取工具，正确处理 Nginx 缓冲/分块等边界情况
+    dramaStreamContent.value = await readSseStreamFull(resp)
+
     dramaFinished.value = true
     dramaShowFull.value = true // 自动展开全文阅读
     dramaSettingsChanged.value = false // 重置变更标记
@@ -1862,6 +1849,7 @@ const generateDramaScript = async () => {
     dramaGenerating.value = false
   }
 }
+
 
 // 广播剧配音自动解析：切换到配音 Tab 时自动解析角色
 watch([activeTab, () => activeSection.value?.id], async ([tab, secId]) => {
