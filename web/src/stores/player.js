@@ -311,13 +311,21 @@ export const usePlayerStore = defineStore('player', {
                                         : task.lyricTimings
                                 } catch (e) { /* 降级 */ }
                             }
-                            this.play({
+                            const completedTrack = {
                                 title: task.title || 'AI 音乐',
                                 author: 'AI Music',
                                 url: task.resultUrl,
                                 lyrics: task.taskType === 'song' ? task.lyrics : null,
                                 lyricTimings
-                            })
+                            }
+                            // ★ 体验优化：仅在以下情况自动切换播放
+                            //   1. 当前播放器空闲（无内容播放）
+                            //   2. 当前正在播放本任务的流式音频（自然升级到最终版）
+                            const isPlayingThisTaskStream = this.currentTrack?.url === task.streamUrl
+                            if (!this.isPlaying || isPlayingThisTaskStream) {
+                                this.play(completedTrack)
+                            }
+                            // 否则：用户正在听其他内容，不打扰，Music.vue 的 success-card 会展示"立即播放"按钮
                         }
                         this.stopTaskPolling()
                         if (onComplete) onComplete(task)
