@@ -95,7 +95,7 @@ public String detectVoiceEngine(String voiceId) {
 }
 ```
 
-**面试话术**: 根据 `sys_voice.supported_engines` 字段动态判定引擎归属，遵循**最高权限原则** — 如果音色同时属于 tts-1.0 和 tts-2.0，按 tts-2.0 走 VIP 校验，确保权限不被降级旁路。
+**选型理解**: 根据 `sys_voice.supported_engines` 字段动态判定引擎归属，遵循**最高权限原则** — 如果音色同时属于 tts-1.0 和 tts-2.0，按 tts-2.0 走 VIP 校验，确保权限不被降级旁路。
 
 ---
 
@@ -221,7 +221,7 @@ public void checkChapterOwnership(Long chapterId, Long userId) {
 
 ---
 
-## 五、面试亮点提炼
+## 五、个人选型理解
 
 > **Q: 项目中遇到过安全问题吗？怎么处理的？**
 

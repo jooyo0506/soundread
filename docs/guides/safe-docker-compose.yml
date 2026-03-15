@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # =========================================================
+  # 业务数据库 (MySQL 8) - 存储核心业务数据
+  # =========================================================
+  mysql:
+    image: mysql:8.0.35
+    container_name: soundread-mysql
+    restart: always
+    environment:
+      # 🚨【重要配置】请务必修改这里的复杂密码
+      MYSQL_ROOT_PASSWORD: 'SoundRead!db!@2024$#_'
+      MYSQL_DATABASE: 'sound_read'
+      TZ: 'Asia/Shanghai'
+    command: 
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=caching_sha2_password
+    ports:
+      # 【核心安全】前面加上 127.0.0.1: 表示该端口仅本机可访问
+      # 外网绝对无法连上 3306 端口！如果需要连本机调试，请走 SSH 隧道
+      - "127.0.0.1:3306:3306"
+    volumes:
+      # 将数据持久化到当前目录的 mysql 文件夹下
+      - ./mysql:/var/lib/mysql
+    networks:
+      - soundread_net
+
+networks:
+  soundread_net:
+    driver: bridge
