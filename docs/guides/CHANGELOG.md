@@ -4,6 +4,30 @@
 
 ---
 
+## [2026-03-15] — 游客浏览模式 + API 限流防刷 + generateLyrics 权限修复
+
+### 🟢 游客浏览模式
+
+| 文件 | 改动 |
+|------|------|
+| `SaTokenConfig.java` | 白名单新增 `/discover/works/*/play`（播放计数）、`/voice/library`（音色列表） |
+| `router/index.js` | Create/Emotion/Podcast/Music/Vip 移除 `requiresAuth`，游客可浏览 UI |
+| `useLoginGuard.js` | **新增** 通用游客操作拦截组合式函数 |
+| `Music.vue` | `startGenerate`/`aiGenerateLyrics` 补充登录守卫 |
+
+**设计原则**: AiWorkshop/Studio/Profile/Creations 保持需登录（空 UI 无展示价值 / Agent 成本最高）。
+
+### 🔴 安全: API 限流防刷
+
+| 文件 | 改动 |
+|------|------|
+| `RateLimit.java` | **新增** `@RateLimit` 注解 |
+| `RateLimitAspect.java` | **新增** Caffeine 滑动窗口 AOP 切面（按 userId+方法维度，超限 429） |
+| 5 个 Controller | 14 个 AI 端点全部打标（3/5/10 次每分钟分级） |
+| `MusicController.java` | `generateLyrics` 补上 `@RequireFeature("ai_music")` |
+
+---
+
 ## [2026-03-14] — SSE 域名修复 + 广播剧标题同步 + 配音超时修复 + Sa-Token 文档
 
 ### 🔴 紧急修复

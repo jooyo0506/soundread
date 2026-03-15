@@ -1,5 +1,7 @@
 # SoundRead 权限鉴定架构解析 (基于 Sa-Token)
 
+> 最后更新：2026-03-15（新增游客浏览模式 + API 限流防刷）
+
 本项目采用了 **Sa-Token** 作为全栈认证授权框架。权限控制体系分为三层防御，主要通过**全局路由拦截**、**Session 标识校验** 和 **AOP 业务权限切面** 来实现多维度的保护。
 
 ---
@@ -38,7 +40,9 @@ public void addInterceptors(InterceptorRegistry registry) {
             "/api/auth/**",                   // 登录注册、验证码
             "/api/discover/banners",          // 发现页轮播图
             "/api/discover/works",            // 发现页公共作品列表
+            "/api/discover/works/*/play",     // 播放计数（游客也可试听）
             "/api/tts/voices",                // 获取通用音色列表
+            "/api/voice/library",             // 音色库列表展示（游客可浏览）
             "/api/vip/plans",                 // 会员套餐价格查询
             "/api/vip/payment/alipay-notify", // 支付宝支付异步回调（绝对不能拦截）
             "/api/studio/templates"           // 创作中心可用的模版列表
@@ -122,6 +126,50 @@ if (!tierPolicyService.hasFeature(user.getTierCode(), "ai_drama")) {
 
 ---
 
+## 🌐 游客浏览模式（2026-03-15 新增）
+
+为了让未登录用户能体验产品，前端路由分三层：
+
+| 层级 | 页面 | 策略 |
+|------|------|------|
+| 🟢 完全公开 | 首页、发现页、音色库、VIP、登录 | 无 `requiresAuth` |
+| 🟡 可看不可做 | 快速配音、情感朗读、AI双播、AI音乐 | 无 `requiresAuth`，操作按钮用 `useLoginGuard()` 拦截 |
+| 🔴 必须登录 | AI 工坊、工作台、编辑器、创作库、个人中心 | `meta: { requiresAuth: true }` |
+
+**前端拦截函数**（`web/src/composables/useLoginGuard.js`）：
+```javascript
+function requireLogin(actionName) {
+    if (authStore.isLoggedIn) return false
+    toastStore.show(`请先登录后${actionName}`)
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return true  // 已拦截
+}
+```
+
+---
+
+## 🛡️ 第四层防御：API 限流防刷（2026-03-15 新增）
+
+**核心文件**：`@RateLimit` 注解 + `RateLimitAspect`（Caffeine 滑动窗口）
+
+所有 AI 模型接口按成本分级限流，超限返回 429：
+
+```java
+@RateLimit(maxRequests = 5, windowSeconds = 60, message = "AI 助手调用过于频繁")
+@PostMapping("/chat")
+public Result<?> chat(...) { ... }
+```
+
+| 限流 | 端点 |
+|------|------|
+| **3次/分** | 音乐生成、广播剧生成（外部 API 成本最高） |
+| **5次/分** | Agent 聊天、AI 写词、台本生成、情感增强、大纲、内容生成 |
+| **10次/分** | TTS 合成(v1/v2)、试听、灵感、情感分析、音色匹配 |
+
+**实现原理**：Caffeine `expireAfterWrite` 做窗口自动清零，`key = userId + methodName`。
+
+---
+
 ## 总结最佳使用姿势
 
 1. **不需要任何权限的公共接口 (如浏览数据)**：放进 `SaTokenConfig` 的 `excludePathPatterns`。
@@ -130,3 +178,4 @@ if (!tierPolicyService.hasFeature(user.getTierCode(), "ai_drama")) {
 4. **功能等级收费拦截 (如AI小说/播客/音乐)**：
    - 如果是**普通 REST 接口**：在控制器方法上面挂 `@RequireFeature("功能代号")`。
    - 如果是**SSE 生成接口**：在代码内部手动写 `tierPolicyService.hasFeature(...)` 检查！
+5. **防止接口被刷（AI 模型消耗）**：在 Controller 方法上加 `@RateLimit(maxRequests, windowSeconds)`。

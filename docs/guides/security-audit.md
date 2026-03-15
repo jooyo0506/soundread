@@ -1,6 +1,6 @@
 # 06 — 后端安全审计与漏洞修复
 
-> 版本: v1.0 | 审计日期: 2026-02-27 | 审计范围: 16 个 Controller + Sa-Token 配置
+> 版本: v1.1 | 审计日期: 2026-02-27 → 2026-03-15 | 审计范围: 16 个 Controller + Sa-Token 配置 + API 限流
 
 ---
 
@@ -266,3 +266,24 @@ public void checkChapterOwnership(Long chapterId, Long userId) {
 - `StudioController.generateDrama()` — 改用 `tierPolicyService.hasFeature()` 内联检查
 - 其他 SSE 端点（`generateContent`、`rewriteSection`）本已采用内联模式，无需修改
 
+---
+
+## 七、API 限流防刷（2026-03-15 新增）
+
+### 🔴 漏洞 7: 全项目零限流 — 模型接口裸奔（高危）
+
+**问题描述**: 15 个 Controller、所有 AI 模型接口完全没有任何限流机制。登录用户可以无限调用 LLM/TTS/音乐生成接口，恶意用户可快速耗光 Token 和 API 配额。
+
+**修复方案**: 新增 `@RateLimit` 注解 + `RateLimitAspect`（Caffeine 滑动窗口），按 `userId + methodName` 维度限流：
+
+| 限流级别 | 端点 | 理由 |
+|---------|------|------|
+| 3次/分 | 音乐生成、广播剧生成 | 外部 API 单价最高 |
+| 5次/分 | Agent 聊天、写词、台本、增强、大纲、内容生成 | LLM 调用 |
+| 10次/分 | TTS 合成(v1/v2)、试听、灵感、情感分析、音色匹配 | 相对轻量 |
+
+### 🟠 漏洞 8: MusicController.generateLyrics 缺失权限校验（中危）
+
+**问题描述**: `generateLyrics` 调用了 LLM 但没有 `@RequireFeature` 注解，任何登录用户（含免费用户）都可以无限调用 AI 写词。
+
+**修复**: 补上 `@RequireFeature("ai_music")` + `@RateLimit(maxRequests = 5)`。
