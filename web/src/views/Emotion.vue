@@ -756,6 +756,13 @@ const fillDemo = (type) => {
 }
 
 const generateScene = async () => {
+  // 游客点击 AI 写本 → 提示登录
+  if (!authStore.isLoggedIn) {
+    toastStore.show('请先登录后使用 AI 写本')
+    router.push({ name: 'Login', query: { redirect: route.fullPath } })
+    return
+  }
+
   // 根据模式取指令
   const activeInstruction = creativeMode.value === 'quick' 
     ? instruction.value 

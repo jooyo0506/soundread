@@ -21,10 +21,6 @@
           class="flex-1 py-1.5 rounded-full text-sm font-bold transition-all flex justify-center items-center gap-1 truncate px-1"
           :class="mode === 'ai' ? 'glass-panel text-[#FF9500] shadow-md' : 'text-gray-500 hover:text-white'"
         >AI 编排 <i class="fas fa-wand-magic-sparkles text-[10px]"></i></button>
-        <button 
-          @click="$router.push('/drama')"
-          class="flex-1 py-1.5 rounded-full text-sm font-bold transition-all text-purple-400 hover:text-purple-300 flex justify-center items-center gap-1 truncate px-1"
-        >连贯剧本 <i class="fas fa-masks-theater text-[10px]"></i></button>
       </div>
     </div>
 
