@@ -1,5 +1,6 @@
 package com.soundread.controller;
 
+import com.soundread.common.RateLimit;
 import com.soundread.common.Result;
 import com.soundread.model.entity.CreativeTemplate;
 import com.soundread.model.entity.StudioProject;
@@ -115,6 +116,7 @@ public class StudioController {
     /**
      * AI 灵感种子生成 — 根据类型生成 6 个灵感
      */
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @GetMapping("/templates/{typeCode}/inspiration")
     public Result<String> generateInspiration(@PathVariable String typeCode) {
         try {
@@ -128,6 +130,7 @@ public class StudioController {
     /**
      * AI 大纲生成 — 根据项目灵感生成结构化大纲和角色
      */
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @PostMapping("/projects/{id}/outline")
     public Result<String> generateOutline(@PathVariable Long id,
             @RequestBody(required = false) OutlineRequest req) {
@@ -164,6 +167,7 @@ public class StudioController {
      * 此处不加全局 @RequireFeature，在 StudioService 内部按 typeCode 判断。
      * </p>
      */
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @PostMapping(value = "/projects/{id}/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateContent(@PathVariable Long id, @RequestBody GenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
@@ -196,6 +200,7 @@ public class StudioController {
      * 改为在方法内部检查，与 TtsController.generateAiScript 保持一致。
      * </p>
      */
+    @RateLimit(maxRequests = 3, windowSeconds = 60, message = "广播剧生成过于频繁，请稍后再试")
     @PostMapping(value = "/projects/{id}/drama-generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateDrama(@PathVariable Long id, @RequestBody DramaGenerateRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);

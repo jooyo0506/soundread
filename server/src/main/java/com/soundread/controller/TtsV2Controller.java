@@ -1,5 +1,6 @@
 package com.soundread.controller;
 
+import com.soundread.common.RateLimit;
 import com.soundread.common.RequireFeature;
 import com.soundread.common.Result;
 import com.soundread.common.exception.BusinessException;
@@ -72,6 +73,7 @@ public class TtsV2Controller {
      * @param httpRequest HTTP 上下文
      * @return 音频 URL
      */
+    @RateLimit(maxRequests = 10, windowSeconds = 60, message = "语音合成过于频繁，请稍后再试")
     @PostMapping("/synthesize")
     public Result<TtsV2Response> synthesize(
             @RequestBody TtsV2Request request,
@@ -122,6 +124,7 @@ public class TtsV2Controller {
      * @param request 原始文本请求
      * @return 增强后的文本（含情感标签）
      */
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @RequireFeature("ai_script")
     @PostMapping("/enhance-tags")
     public Result<String> enhanceEmotionTags(@Valid @RequestBody AiEmotionRequest request) {
@@ -151,6 +154,7 @@ public class TtsV2Controller {
      * @param request 包含 instruction/wordCount/theme/context/mode 字段
      * @return AI 生成的台本文本
      */
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @RequireFeature("ai_script")
     @PostMapping("/generate-scene")
     public Result<String> generateScene(@Valid @RequestBody AiSceneRequest request) {
@@ -186,6 +190,7 @@ public class TtsV2Controller {
      * @param body 包含 context 字段（待分析文本）
      * @return JSON 格式的情感分析结果
      */
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @RequireFeature("ai_script")
     @PostMapping("/analyze-mood")
     public Result<String> analyzeMood(@RequestBody java.util.Map<String, String> body) {
@@ -213,6 +218,7 @@ public class TtsV2Controller {
      * @param body 包含 content（文本内容）和 moduleType（模块类型）字段
      * @return SmartToneResult（推荐音色列表 + 理由）
      */
+    @RateLimit(maxRequests = 10, windowSeconds = 60)
     @RequireFeature("ai_script")
     @PostMapping("/smart-tone")
     public Result<SmartToneResult> smartToneMatch(@RequestBody java.util.Map<String, String> body) {

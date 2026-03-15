@@ -1,5 +1,6 @@
 package com.soundread.controller;
 
+import com.soundread.common.RateLimit;
 import com.soundread.common.Result;
 import com.soundread.model.dto.TtsDto;
 import com.soundread.model.entity.User;
@@ -59,6 +60,7 @@ public class TtsController {
     /**
      * 短文本同步合成（TTS 1.0）
      */
+    @RateLimit(maxRequests = 10, windowSeconds = 60, message = "合成过于频繁，请稍后再试")
     @PostMapping("/short")
     public Result<TtsDto.SynthesizeResponse> shortTextSynthesize(
             @Valid @RequestBody TtsDto.ShortTextRequest req) {
@@ -117,6 +119,7 @@ public class TtsController {
      * TTS 2.0 音色暂不支持免费试听，返回提示。
      * </p>
      */
+    @RateLimit(maxRequests = 10, windowSeconds = 60, message = "试听过于频繁，请稍后再试")
     @PostMapping("/preview")
     public Result<TtsDto.SynthesizeResponse> previewVoice(@RequestBody TtsDto.ShortTextRequest req) {
         String voiceId = req.getVoiceId();
@@ -171,6 +174,7 @@ public class TtsController {
      * Spring MVC 内容类型协商失败会直接返回 405，改为在方法内部检查。
      * </p>
      */
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
     @PostMapping(value = "/ai-script", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateAiScript(@Valid @RequestBody TtsDto.AiScriptRequest req) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);

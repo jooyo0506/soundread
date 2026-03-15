@@ -1,5 +1,6 @@
 package com.soundread.controller;
 
+import com.soundread.common.RateLimit;
 import com.soundread.common.Result;
 import com.soundread.common.RequireFeature;
 import com.soundread.model.entity.MusicTask;
@@ -34,6 +35,7 @@ public class MusicController {
     /**
      * 提交音乐生成任务
      */
+    @RateLimit(maxRequests = 3, windowSeconds = 60, message = "音乐生成过于频繁，请稍后再试")
     @RequireFeature("ai_music")
     @PostMapping("/generate")
     public Result<?> generate(@RequestBody GenerateRequest req) {
@@ -53,6 +55,8 @@ public class MusicController {
     /**
      * AI 生成歌词
      */
+    @RateLimit(maxRequests = 5, windowSeconds = 60)
+    @RequireFeature("ai_music")
     @PostMapping("/lyrics")
     public Result<?> generateLyrics(@RequestBody LyricsRequest req) {
         try {

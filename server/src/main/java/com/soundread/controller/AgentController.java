@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.soundread.agent.toolcalling.SmartAssistant;
 import com.soundread.agent.toolcalling.SoundReadTools;
+import com.soundread.common.RateLimit;
 import com.soundread.common.Result;
 import com.soundread.config.ai.LlmProperties;
 import com.soundread.model.entity.User;
@@ -89,6 +90,7 @@ public class AgentController {
         }
     }
 
+    @RateLimit(maxRequests = 5, windowSeconds = 60, message = "AI 助手调用过于频繁，请稍后再试")
     @PostMapping("/chat")
     public Result<?> chat(@RequestBody Map<String, String> body,
             @RequestHeader(value = "Authorization", required = false) String token) {
