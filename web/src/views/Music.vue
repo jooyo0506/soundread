@@ -297,9 +297,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { musicApi } from '../api/music'
 import { usePlayerStore } from '../stores/player'
 import { useToastStore } from '../stores/toast'
+import { useLoginGuard } from '../composables/useLoginGuard'
 
 const playerStore = usePlayerStore()
 const toastStore = useToastStore()
+const { requireLogin } = useLoginGuard()
 
 const mode = ref('instrumental')
 const prompt = ref('')
@@ -333,6 +335,7 @@ const toggleTag = (tag) => {
 }
 
 const startGenerate = async () => {
+  if (requireLogin('使用AI音乐生成')) return
   generating.value = true
   try {
     const res = await musicApi.generate({
@@ -355,6 +358,7 @@ const startGenerate = async () => {
 }
 
 const aiGenerateLyrics = async () => {
+  if (requireLogin('使用AI写词')) return
   lyricsLoading.value = true
   try {
     const res = await musicApi.generateLyrics(prompt.value)

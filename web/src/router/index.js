@@ -18,12 +18,13 @@ const routes = [
         component: () => import('../views/VoiceLibrary.vue')
     },
     {
+        // 游客可浏览 UI，合成操作在页面内拦截引导登录
         path: '/create',
         name: 'Create',
-        component: () => import('../views/Create.vue'),
-        meta: { requiresAuth: true }
+        component: () => import('../views/Create.vue')
     },
     {
+        // 个人中心：纯个人数据，必须登录
         path: '/profile',
         name: 'Profile',
         component: () => import('../views/Profile.vue'),
@@ -35,33 +36,35 @@ const routes = [
         component: () => import('../views/Login.vue')
     },
     {
+        // 游客可浏览 UI，合成操作在页面内拦截引导登录
         path: '/emotion',
         name: 'Emotion',
-        component: () => import('../views/Emotion.vue'),
-        meta: { requiresAuth: true }
+        component: () => import('../views/Emotion.vue')
     },
 
     {
+        // 游客可浏览 UI，生成操作在页面内拦截引导登录
         path: '/podcast',
         name: 'Podcast',
-        component: () => import('../views/Podcast.vue'),
-        meta: { requiresAuth: true }
+        component: () => import('../views/Podcast.vue')
     },
 
     {
+        // VIP 套餐完全公开，让游客看到权益对比
         path: '/vip',
         name: 'Vip',
-        component: () => import('../views/Vip.vue'),
-        meta: { requiresAuth: true }
+        component: () => import('../views/Vip.vue')
     },
 
     {
+        // 我的创作：纯个人数据，必须登录
         path: '/creations',
         name: 'MyCreations',
         component: () => import('../views/MyCreations.vue'),
         meta: { requiresAuth: true }
     },
     {
+        // 工作台项目列表：纯个人数据，必须登录
         path: '/studio',
         name: 'Studio',
         component: () => import('../views/Studio.vue'),
@@ -74,12 +77,13 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        // 游客可浏览 UI，生成操作在页面内拦截引导登录
         path: '/music',
         name: 'Music',
-        component: () => import('../views/Music.vue'),
-        meta: { requiresAuth: true }
+        component: () => import('../views/Music.vue')
     },
     {
+        // AI 工坊：空聊天界面对游客无展示价值 + Agent 调用成本最高，保持需登录
         path: '/workshop',
         name: 'AiWorkshop',
         component: () => import('../views/AiWorkshop.vue'),
