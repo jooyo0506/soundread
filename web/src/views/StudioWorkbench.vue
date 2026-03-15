@@ -819,7 +819,7 @@
                   <!-- 情感选择 -->
                   <div class="flex flex-wrap gap-1">
                     <button v-for="emo in ['冷漠傲慢', '温柔感伤', '惊慌恐惧', '愤怒爆发', '平稳叙事', '撩气暗示']" :key="emo"
-                            @click="characterEmotionMap[char] = characterEmotionMap[char] === emo ? '' : emo"
+                            @click="characterEmotionMap[char] = characterEmotionMap[char] === emo ? '' : emo; if (activeSection?.audioUrl) dramaSynthDirty = true"
                             class="px-1.5 py-0.5 rounded text-[9px] cursor-pointer transition-all"
                             :class="characterEmotionMap[char] === emo ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-white/5 text-gray-500 hover:bg-white/10'">
                       {{ emo }}
@@ -829,14 +829,19 @@
               </div>
             </div>
 
-            <!-- 分角色合成按钮 -->
-            <button v-if="dramaCharacters.length > 0" @click="synthesizeDrama" :disabled="synthesizingSection"
+            <!-- 分角色合成按钮：无音频时显示首次合成，有音频+改了设置时显示重新合成 -->
+            <button v-if="dramaCharacters.length > 0 && (!activeSection?.audioUrl || dramaSynthDirty)" @click="synthesizeDrama" :disabled="synthesizingSection"
                     class="w-full py-3 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5"
-                    :class="synthesizingSection ? 'bg-gray-700 text-gray-400' : 'bg-gradient-to-r from-pink-600 to-purple-600 text-white'">
+                    :class="synthesizingSection ? 'bg-gray-700 text-gray-400' : dramaSynthDirty ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white' : 'bg-gradient-to-r from-pink-600 to-purple-600 text-white'">
               <i v-if="synthesizingSection" class="fas fa-circle-notch fa-spin"></i>
-              <i v-else class="fas fa-theater-masks"></i>
-              {{ synthesizingSection ? `分角色合成中 ${synthChunkProgress}/${synthChunkTotal}...` : `🎭 开始分角色配音（${dramaCharacters.length} 个角色）` }}
+              <i v-else class="fas" :class="dramaSynthDirty ? 'fa-redo-alt' : 'fa-theater-masks'"></i>
+              {{ synthesizingSection ? `分角色合成中 ${synthChunkProgress}/${synthChunkTotal}...` : dramaSynthDirty ? `🔄 重新合成配音（音色/情感已修改）` : `🎭 开始分角色配音（${dramaCharacters.length} 个角色）` }}
             </button>
+            <!-- 已配音且未修改设置：显示完成状态 -->
+            <div v-else-if="dramaCharacters.length > 0 && activeSection?.audioUrl && !dramaSynthDirty" class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-green-500/10 text-green-400 border border-green-500/20 mt-3">
+              <i class="fas fa-check-circle"></i>
+              ✅ 配音已完成 · 修改音色或情感后可重新合成
+            </div>
           </template>
 
           <!-- ═══ 通用配音面板（非广播剧） ═══ -->
@@ -1161,22 +1166,19 @@
                   <span class="text-sm font-bold text-white">{{ char }}</span>
                   <span class="text-[9px] text-gray-500 ml-auto">{{ dramaLines.filter(l => l.character === char).length }} 句</span>
                 </div>
-                <!-- 音色选择 -->
+                <!-- 音色选择（合成后仍可修改，修改后触发 dirty 标记允许重新合成） -->
                 <button @click="dramaVoicePickerFor = char; showVoicePicker = true"
-                        :disabled="!!activeSection?.audioUrl"
-                        class="w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all text-left"
-                        :class="activeSection?.audioUrl ? 'bg-white/[0.02] border-white/5 cursor-default opacity-60' : 'bg-white/5 border-white/10 hover:border-pink-500/30 cursor-pointer'">
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 border border-white/10 hover:border-pink-500/30 cursor-pointer transition-all text-left">
                   <div class="flex items-center gap-1.5">
                     <i class="fas fa-microphone-alt text-pink-400 text-[10px]"></i>
                     <span class="text-[11px] text-white">{{ characterVoiceNames[char] || '选择音色' }}</span>
                   </div>
-                  <i v-if="!activeSection?.audioUrl" class="fas fa-chevron-right text-gray-600 text-[8px]"></i>
-                  <i v-else class="fas fa-lock text-gray-600 text-[8px]"></i>
+                  <i class="fas fa-chevron-right text-gray-600 text-[8px]"></i>
                 </button>
-                <!-- 情感选择 -->
-                <div v-if="!activeSection?.audioUrl" class="flex flex-wrap gap-1">
+                <!-- 情感选择（始终可编辑） -->
+                <div class="flex flex-wrap gap-1">
                   <button v-for="emo in ['冷漠傲慢', '温柔感伤', '惊慌恐惧', '愤怒爆发', '平稳叙事', '撩气暗示']" :key="emo"
-                          @click="characterEmotionMap[char] = characterEmotionMap[char] === emo ? '' : emo"
+                          @click="characterEmotionMap[char] = characterEmotionMap[char] === emo ? '' : emo; if (activeSection?.audioUrl) dramaSynthDirty = true"
                           class="px-1.5 py-0.5 rounded text-[9px] cursor-pointer transition-all"
                           :class="characterEmotionMap[char] === emo ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-white/5 text-gray-500 hover:bg-white/10'">
                     {{ emo }}
@@ -1185,14 +1187,19 @@
               </div>
             </div>
 
-            <!-- 分角色合成按钮（已有音频时隐藏） -->
-            <button v-if="dramaCharacters.length > 0 && !activeSection?.audioUrl" @click="synthesizeDrama" :disabled="synthesizingSection"
+            <!-- 分角色合成按钮：无音频时首次合成，有音频+改设置后重新合成 -->
+            <button v-if="dramaCharacters.length > 0 && (!activeSection?.audioUrl || dramaSynthDirty)" @click="synthesizeDrama" :disabled="synthesizingSection"
                     class="w-full py-3 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center justify-center gap-1.5 mt-3"
-                    :class="synthesizingSection ? 'bg-gray-700 text-gray-400' : 'bg-gradient-to-r from-pink-600 to-purple-600 text-white'">
+                    :class="synthesizingSection ? 'bg-gray-700 text-gray-400' : dramaSynthDirty ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white' : 'bg-gradient-to-r from-pink-600 to-purple-600 text-white'">
               <i v-if="synthesizingSection" class="fas fa-circle-notch fa-spin"></i>
-              <i v-else class="fas fa-theater-masks"></i>
-              {{ synthesizingSection ? `分角色合成中 ${synthChunkProgress}/${synthChunkTotal}...` : `🎭 开始分角色配音（${dramaCharacters.length} 个角色）` }}
+              <i v-else class="fas" :class="dramaSynthDirty ? 'fa-redo-alt' : 'fa-theater-masks'"></i>
+              {{ synthesizingSection ? `分角色合成中 ${synthChunkProgress}/${synthChunkTotal}...` : dramaSynthDirty ? `🔄 重新合成配音（音色/情感已修改）` : `🎭 开始分角色配音（${dramaCharacters.length} 个角色）` }}
             </button>
+            <!-- 已配音且未修改设置：显示完成状态 -->
+            <div v-else-if="dramaCharacters.length > 0 && activeSection?.audioUrl && !dramaSynthDirty" class="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-green-500/10 text-green-400 border border-green-500/20 mt-3">
+              <i class="fas fa-check-circle"></i>
+              ✅ 配音已完成 · 修改音色或情感后可重新合成
+            </div>
           </div>
 
           <!-- ═══ 8. 发布区 ═══ -->
@@ -1741,6 +1748,7 @@ const getCharColor = (name) => {
   return charColorCache[name]
 }
 const characterEmotionMap = ref({})   // 角色→情感语气映射
+const dramaSynthDirty = ref(false)    // 音色/情感设置是否在合成后被修改过（防止重复合成浪费 Token）
 const dramaVoicePickerFor = ref('')   // 当前正在为哪个角色选音色
 const dramaParsingScript = ref(false) // 解析中
 const isDramaType = computed(() => project.value?.typeCode === 'drama')
@@ -1934,6 +1942,7 @@ const synthesizeDrama = async () => {
       }
       activeSection.value.audioUrl = audioUrl
       await studioApi.saveSection(activeSection.value)
+      dramaSynthDirty.value = false  // 合成完成，重置设置变更标记
       toastStore.show(`🎭 分角色配音完成！${dramaCharacters.value.length} 个角色、${audioUrls.length} 句台词`)
     }
   } catch (e) {
@@ -3097,6 +3106,8 @@ const onVoiceSelect = async (voice) => {
     characterVoiceMap.value[char] = voice.voiceId
     characterVoiceNames.value[char] = voice.name
     dramaVoicePickerFor.value = ''
+    // 如果已合成过音频，标记设置已修改（允许重新合成）
+    if (activeSection.value?.audioUrl) { dramaSynthDirty.value = true }
     toastStore.show(`🎭 ${char} → ${voice.name}`)
     return
   }
