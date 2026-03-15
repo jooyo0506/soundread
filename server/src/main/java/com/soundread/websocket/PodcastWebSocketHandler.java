@@ -23,12 +23,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
  * 播客 WebSocket 流式生成 Handler
@@ -58,6 +63,7 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
     private final UserMapper userMapper;
     private final R2StorageAdapter r2StorageAdapter;
     private final CreationService creationService;
+    private final com.soundread.service.TierPolicyService tierPolicyService;
 
     /**
      * R2 音频上传专用线程池（来自 AsyncConfig，与 WebSocket 线程隔离）
@@ -70,6 +76,12 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
 
     /** 活跃会话映射（WebSocket sessionId → PodcastSession） */
     private final Map<String, PodcastClient.PodcastSession> activeSessions = new ConcurrentHashMap<>();
+
+    /** 播客生成限流：每用户 3次/60秒（WebSocket 不走 AOP，需手动限流） */
+    private final Cache<Long, AtomicInteger> rateLimitCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofSeconds(60))
+            .maximumSize(5_000)
+            .build();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -86,15 +98,34 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // ===== 配额检查（仅检查，不扣减；扣减在生成成功后执行）=====
+        // ===== 1. 登录校验（WebSocket 不走 SaToken 拦截器，必须手动检查）=====
         User user = resolveUser(session);
-        if (user != null) {
-            try {
-                quotaService.checkPodcastQuota(user);
-            } catch (QuotaExceededException e) {
-                sendError(session, e.getMessage());
-                return;
-            }
+        if (user == null) {
+            sendError(session, "请先登录后使用 AI 播客功能");
+            session.close(CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+
+        // ===== 2. 功能权限校验（等效 @RequireFeature，WebSocket 不走 AOP）=====
+        if (!tierPolicyService.hasFeature(user.getTierCode(), "ai_podcast")) {
+            sendError(session, "当前套餐未开通 AI 播客功能，请升级会员");
+            return;
+        }
+
+        // ===== 3. 限流防刷（3次/60秒，WebSocket 不走 @RateLimit AOP）=====
+        AtomicInteger counter = rateLimitCache.get(user.getId(), k -> new AtomicInteger(0));
+        if (counter.incrementAndGet() > 3) {
+            log.warn("[Podcast WS] 用户 {} 触发播客限流", user.getId());
+            sendError(session, "播客生成过于频繁，请稍后再试");
+            return;
+        }
+
+        // ===== 4. 配额检查（仅检查，不扣减；扣减在生成成功后执行）=====
+        try {
+            quotaService.checkPodcastQuota(user);
+        } catch (QuotaExceededException e) {
+            sendError(session, e.getMessage());
+            return;
         }
 
         String text = req.getString("text");
@@ -122,8 +153,7 @@ public class PodcastWebSocketHandler extends TextWebSocketHandler {
         }
 
         log.info("[Podcast WS] 开始生成: userId={} sourceType={} voiceA={} voiceB={} textLen={}",
-                user != null ? user.getId() : "anonymous",
-                sourceType, voiceA, voiceB, text != null ? text.length() : 0);
+                user.getId(), sourceType, voiceA, voiceB, text != null ? text.length() : 0);
 
         // 捕获 lambda 需要 final 或 effectively final
         final User currentUser = user;
