@@ -42,6 +42,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
                                 .excludePathPatterns("/api/auth/**", "/api/discover/banners", "/api/discover/works",
                                                 "/api/discover/works/*/play", // 播放计数：游客也可试听
                                                 "/api/tts/voices",
+                                                "/api/tts/v2/prompt-library/**", // 情感指令库：游客浏览情感页需要
                                                 "/api/voice/library", // 音色列表：游客可浏览
                                                 "/api/vip/plans",
                                                 "/api/vip/payment/alipay-notify", // 支付宝回调无 token，必须放行

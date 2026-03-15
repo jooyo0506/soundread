@@ -298,10 +298,12 @@ import { musicApi } from '../api/music'
 import { usePlayerStore } from '../stores/player'
 import { useToastStore } from '../stores/toast'
 import { useLoginGuard } from '../composables/useLoginGuard'
+import { useAuthStore } from '../stores/auth'
 
 const playerStore = usePlayerStore()
 const toastStore = useToastStore()
 const { requireLogin } = useLoginGuard()
+const authStore = useAuthStore()
 
 const mode = ref('instrumental')
 const prompt = ref('')
@@ -502,6 +504,7 @@ const formatTime = (t) => {
 }
 
 onMounted(async () => {
+  if (!authStore.isLoggedIn) return  // 游客模式：跳过加载个人任务列表
   await loadTasks()
   const processingTask = tasks.value.find(t => ['processing', 'streaming'].includes(t.status))
   if (processingTask) {

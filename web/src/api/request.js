@@ -59,9 +59,12 @@ const isAuthWhitelisted = (url) => AUTH_WHITELIST.some(path => url?.includes(pat
 
 /**
  * 处理认证失效 — 清除 token 并跳转登录页（携带当前路径作为回跳参数）
+ * 注意：游客模式下（本来就没 token）不触发跳转，由页面级 catch 自行处理
  */
 const handleAuthFailure = () => {
     const authStore = useAuthStore()
+    // 游客模式：本来就没有 token，不应该跳转登录页（让页面自己 catch 即可）
+    if (!authStore.token) return
     authStore.clearToken()
     // 携带 redirect 参数，让用户登录后回到原页面
     const currentPath = router.currentRoute?.value?.fullPath || '/'
