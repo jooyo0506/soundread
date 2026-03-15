@@ -4,6 +4,97 @@
 
 ---
 
+## [2026-03-14] — SSE 域名修复 + 广播剧标题同步 + 配音超时修复 + Sa-Token 文档
+
+### 🔴 紧急修复
+
+#### SSE fetch 请求打到 Cloudflare Pages 静态域名导致 405（`studio.js`）
+
+| 文件 | 改动 |
+|------|------|
+| `studio.js` | 新增 `SSE_BASE` 常量，使用 `VITE_API_BASE_URL` 替代硬编码 `/api` 前缀 |
+
+**根因**：前端部署在 `www.joyoai.xyz`（Cloudflare Pages 静态托管），SSE 的 `fetch()` 使用相对路径 `/api/...`，浏览器自动解析为 `https://www.joyoai.xyz/api/...`。Cloudflare Pages 对 POST 请求返回 405 Method Not Allowed，后端从未被调用。而 axios 使用了 `VITE_API_BASE_URL=https://joyoai.xyz/api`（无 www），所以普通 API 不受影响。
+
+**影响范围**：3 个 SSE 接口全部不可用：
+- `generateContent`（正文生成）
+- `generateDrama`（广播剧一键生成）
+- `rewriteSection`（AI 改写）
+
+---
+
+#### @RequireFeature AOP 与 SSE 端点内容协商冲突（`StudioController.java`）
+
+| 文件 | 改动 |
+|------|------|
+| `StudioController.java` | 移除 `@RequireFeature("ai_drama")`，改用内联 `tierPolicyService.hasFeature()` 检查 |
+| `QuotaService.java` | `getQuotaLimit` 未找到策略时返回 `-1`（无限制）替代 `0`（阻止） |
+
+**根因**：AOP 切面抛出的异常通过全局异常处理器转为 JSON（`application/json`），但 SSE 端点要求返回 `text/event-stream`，Spring MVC 内容协商失败导致空 405 响应。
+
+---
+
+### 🐛 修复
+
+#### 广播剧分角色配音超时（`StudioWorkbench.vue` + `studio.js`）
+
+| 接口 | 原超时 | 新超时 |
+|------|--------|--------|
+| `/tts/v2/synthesize`（情感 TTS） | 10s（全局默认） | 60s |
+| `/studio/parse-script`（剧本解析） | 10s | 60s |
+| `/studio/concat-audio`（音频拼接） | 10s | 120s |
+
+**根因**：广播剧 32 句台词逐句调用 TTS v2 API，部分句子加情感标签后处理时间超过 10s 默认超时。
+
+---
+
+#### AI 音乐播放中断修复（`player.js`）
+
+| 文件 | 改动 |
+|------|------|
+| `player.js` | AI 音乐生成完成后，仅在播放器空闲或正在播放同一首歌的流 URL 时才自动播放 |
+
+---
+
+### ✨ 优化
+
+#### 广播剧生成完成后自动同步项目标题（`StudioService.java`）
+
+| 文件 | 改动 |
+|------|------|
+| `StudioService.java` | `saveGeneratedContent` 增强标题解析：支持 `#标题` 和 `##标题`；drama 类型自动将解析出的标题写回 `StudioProject.title` |
+
+**背景**：AI 大模型按 Prompt 指令在第一行输出 `#标题名`，但后端只解析 `##` 前缀且未同步到项目标题，导致用户修改设定重新生成后左上角标题不变。
+
+---
+
+#### AI 音乐页面 emoji 清理（`Music.vue`）
+
+| 文件 | 改动 |
+|------|------|
+| `Music.vue` | 移除所有按钮、状态标签、Toast 消息中的 emoji 图标 |
+
+---
+
+### 📝 文档
+
+| 文件 | 说明 |
+|------|------|
+| `docs/guides/sa-token-auth.md` | 新增：Sa-Token 权限鉴定架构详解（三层防御 + SSE 避坑指南） |
+
+---
+
+### 🚀 Git Commits
+
+```
+81e1dc4 修复: SSE fetch请求打到www域名(Cloudflare Pages)导致405
+00c816d 优: 广播剧生成完成后自动同步项目标题
+c60cd5a 修复: 广播剧分角色配音(TTS v2)及相关接口超时问题
+61c348b docs: 增加关于 Sa-Token 权限体系及 SSE 流式接口限制的详细说明文档
+```
+
+---
+
 ## [2026-03-12] — AI 音乐歌名生成 + 前端性能优化 + AI 接口超时修复
 
 ### ✨ 新功能

@@ -1,11 +1,86 @@
 # 声读 SoundRead — 问题记录与优化方案
 
-> 最后更新：2026-03-11  
+> 最后更新：2026-03-14  
 > 状态图例：✅ 已修复 | ⏳ 计划中 | ❌ 待修复
 
 ---
 
 ## 一、已修复问题清单
+
+### 1.7 SSE fetch 请求域名错误导致 405（前端级 Bug）
+
+**问题**：广播剧一键生成、AI 正文生成、AI 改写等 SSE 流式接口全部返回 405 Method Not Allowed，后端日志完全没有请求记录。
+
+**根因**：
+```
+前端部署在 www.joyoai.xyz（Cloudflare Pages 静态托管）
+axios 配置了 VITE_API_BASE_URL=https://joyoai.xyz/api（正确指向后端）
+但 SSE 用 fetch() 写了相对路径 /api/studio/...
+→ 浏览器自动拼为 https://www.joyoai.xyz/api/studio/...（错误！）
+→ Cloudflare Pages 收到 POST → 返回 405
+→ 后端从未被调用
+```
+
+**修复（已实施 ✅）**：
+```javascript
+// studio.js — 统一 SSE fetch 基础 URL
+const SSE_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+
+// 所有 SSE fetch 改用绝对路径
+fetch(`${SSE_BASE}/studio/projects/${id}/drama-generate`, { ... })
+```
+
+**关键教训**：Cloudflare Pages 前端托管（`www`）和后端 API 域名（无 `www`）不同，axios 自动处理了 baseURL，但原生 `fetch()` 不经过 axios 拦截器，必须手动维护基础 URL。
+
+---
+
+### 1.8 @RequireFeature AOP 与 SSE 端点内容协商冲突
+
+**问题**：广播剧 `generateDrama` 接口被 `@RequireFeature("ai_drama")` AOP 注解拦截时，前端收到空的 405 响应，不显示任何错误提示，后端也无日志。
+
+**根因**：
+1. AOP 切面在方法执行**前**抛出异常
+2. Spring 全局异常处理器将异常转为 JSON（`Content-Type: application/json`）
+3. 但该端点声明返回 `text/event-stream`（SSE）
+4. Spring MVC 内容协商失败 → 返回空 405
+
+**修复（已实施 ✅）**：
+```java
+// 移除 AOP 注解，改用内联判断
+// @RequireFeature("ai_drama")  ← 删除
+if (!tierPolicyService.hasFeature(user.getTierCode(), "ai_drama")) {
+    emitter.send(SseEmitter.event().data("[DRAMA_ERROR]当前套餐未开通广播剧功能"));
+    emitter.complete();
+    return emitter;
+}
+```
+
+**设计原则**：**SSE 流式端点不能使用 AOP 注解做权限拦截**，必须在方法体内部检查，通过流事件传递错误信息。与 `TtsController.generateAiScript` 保持一致。
+
+---
+
+### 1.9 广播剧分角色配音 axios 超时（10s 默认超时导致中断）
+
+**问题**：广播剧 32 句台词分角色配音时，合成到 20 多句突然报 `timeout of 10000ms exceeded`，前面已合成的音频全部丢失。
+
+**根因**：
+1. `request.js` 全局默认超时 10s
+2. `StudioWorkbench.vue` 中逐句调用 `/tts/v2/synthesize` 未设置独立超时
+3. 情感标签（如"冷漠傲慢""愤怒爆发"）会使 TTS 处理时间增加，容易超过 10s
+
+**修复（已实施 ✅）**：
+```javascript
+// StudioWorkbench.vue — TTS v2 合成
+request.post('/tts/v2/synthesize', { ... }, { timeout: 60000 })
+
+// studio.js — 剧本解析
+parseScript: (sectionId) => request.post('/studio/parse-script', { sectionId }, { timeout: 60000 }),
+
+// studio.js — 音频拼接
+concatAudio: (audioUrls) => request.post('/studio/concat-audio', { audioUrls }, { timeout: 120000 }),
+```
+
+---
 
 ### 1.1 支付回调并发竞态（CAS 原子更新）
 

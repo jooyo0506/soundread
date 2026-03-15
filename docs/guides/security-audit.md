@@ -242,3 +242,27 @@ public void checkChapterOwnership(Long chapterId, Long userId) {
    - L4: 音色引擎动态检测 + 配额扣减（业务层）
 
 5. **设计决策**: 归属校验放在 **Service 层**而非 Controller 层，因为 `getProject()` 被 `generate / rewrite / publish / outline` 等多个方法复用，一处修复自动覆盖整条调用链，避免遗漏。
+
+---
+
+## 六、新增发现（2026-03-14 追加）
+
+### 🟠 `@RequireFeature` AOP 与 SSE 端点不兼容（中危）
+
+**问题描述**: 在调试广播剧功能不可用（"0 字符"输出）时发现，`@RequireFeature("ai_drama")` 注解在 SSE（`text/event-stream`）端点上行为异常。
+
+**技术机制**:
+1. AOP 切面拦截到未开通功能后抛出 `BusinessException`
+2. Spring 全局异常处理器 `@ControllerAdvice` 将异常序列化为 JSON（`application/json`）
+3. 但该端点 `@PostMapping(produces = TEXT_EVENT_STREAM_VALUE)` 声明返回 `text/event-stream`
+4. Spring MVC 发现 JSON 响应与 SSE 声明不匹配，内容协商失败
+5. 最终返回空的 405 / 406 响应，前端无法感知真实错误
+
+**影响范围**: 所有使用 `@RequireFeature` + `SseEmitter` 的端点。
+
+**修复原则**: **SSE 流式端点绝对不能使用 AOP 注解做权限拦截**。权限检查必须在方法体内部完成，错误通过流事件（`emitter.send([ERROR_MARKER]msg)`）传递给前端。
+
+**已修复端点**:
+- `StudioController.generateDrama()` — 改用 `tierPolicyService.hasFeature()` 内联检查
+- 其他 SSE 端点（`generateContent`、`rewriteSection`）本已采用内联模式，无需修改
+

@@ -1,6 +1,6 @@
 # 配额系统规范
 
-> 最后更新：2026-03-11  
+> 最后更新：2026-03-14  
 > 适用版本：V10 及以上
 
 ## 设计原则
@@ -96,3 +96,26 @@ QuotaService.checkAndDeductXxx()
 2. 在目标数据库执行该 SQL
 3. 调用 `POST /api/admin/tier-policy/refresh` 刷新内存缓存
 4. 同步更新 `web/src/views/Vip.vue` 展示数字
+
+---
+
+## 配额降级策略（2026-03-14 更新）
+
+### `QuotaService.getQuotaLimit` 容错处理
+
+当未找到用户所属的策略（`TierPolicy` 缺失）时，`getQuotaLimit` 的返回值决定了功能是"默认放行"还是"默认阻断"。
+
+```java
+// 修复前：返回 0 → 用户被完全阻止所有功能
+if (policy == null) return 0;
+
+// 修复后：返回 -1 → 视为无限制，避免因配置缺失导致线上功能不可用
+if (policy == null) return -1;
+```
+
+**设计决策**：`-1` 代表无限制（与 `data_retention_days: -1` 语义一致）。在 MVP 阶段优先保证可用性，策略缺失不应当成权限拒绝处理。
+
+### SSE 流式端点的超时配置
+
+SSE 端点不走 axios，需要在 `fetch()` 层面或通过 `AbortController` 单独管理超时。广播剧分角色配音中逐句调用的 TTS v2 API 需设置 60s 超时（默认 10s 不够）。
+
