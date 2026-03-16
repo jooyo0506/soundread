@@ -7,6 +7,52 @@
 
 ## 一、已修复问题清单
 
+### 1.10 LangChain4j Agent 流式回调 ThreadLocal 上下文丢失
+
+**问题**：在使用 `StreamingChatLanguageModel`（SSE 推送）生成的台本内执行 Tool（例如直接调用合成语音）时，后端报错 `Tool 调用链路异常：未找到当前用户上下文`，引发空指针异常并终止合成。但在传统的同步阻塞请求中，该 Tool 工作完全正常。
+
+**根因**：
+1. `SoundReadTools` 初始设计为单例模式（Singleton），使用 Spring Web 体系下的 `ThreadLocal`（如通过 Controller 注入）来传递 `User` 信息。
+2. 在同步调用时，大模型工具执行在同一个 HTTP 线程内，不受影响。
+3. 改用流式调用后，LangChain4j 和底层 `OkHttp` 开启了独立的后台异步线程池处理 SSE `onNext()` 回调。在解析到需要执行 Tool 时，该后台线程无法继承原始 Web 线程的挂载数据，导致 `ThreadLocal` 读取为空。
+
+**修复（架构解耦与防泄漏 ✅）**：
+不使用可能引发交叉污染的 `InheritableThreadLocal` 或定制化拦截器，直接将工具类从单例改造为**请求级代理（Request-scoped Proxy）**：
+1. **构造函数重构**：为 `SoundReadTools` 增加 explicit `User` 属性和带参的拷贝构造函数 `public SoundReadTools(SoundReadTools source, User user)`。
+2. **连接池剥离**：在 `AgentController` 中将内存占用、复用度高的 `OpenAiStreamingChatModel` 提升为全局单实例缓存，保障 HTTP 握手性能。
+3. **每次请求局部构建代理**：在每次发生 `/chat-stream` 请求时，动态 `new SoundReadTools(singleton, user)` 并利用 `AiServices.builder()` 进行轻量级的局部包装。
+
+**架构意义**：通过纯粹的面向对象参数传递机制，无视了底层模型库复杂的线程调度过程，实现 100% 的异步并发安全。
+
+---
+
+### 1.11 无上限大模型会话上下文 (ChatMemory) 引发潜在 OOM (内存溢出)
+
+**问题**：代码 Review 发现，系统分配了用于淘汰闲置内存的 `Caffeine cache` 但未实际装配到大模型代理中。`AgentController` 的 `sharedMemoryStore` 错误地直接 `new InMemoryChatMemoryStore()`。
+
+**根因**：
+`InMemoryChatMemoryStore` 是 LangChain4j 官方的示例实现，它的底层本质上只是一个 `ConcurrentHashMap<Object, List<ChatMessage>>`。它**没有默认容量上限**且**无法自动淘汰**。在生产环境下如果是真实 C 端产品，10万次聊天将积累数十兆甚至上百兆不可回收的驻留内存，直到 Java 应用宕机。
+
+**修复（架构防灾 ✅）**：
+```java
+// AgentController.java - 重写匿名实现，挂载 Caffeine 引擎
+private final ChatMemoryStore sharedMemoryStore = new ChatMemoryStore() {
+    @Override
+    public List<ChatMessage> getMessages(Object memoryId) {
+        List<ChatMessage> messages = (List<ChatMessage>) memoryCache.getIfPresent(memoryId);
+        return messages != null ? messages : new ArrayList<>();
+    }
+    @Override
+    public void updateMessages(Object memoryId, List<ChatMessage> messages) {
+        memoryCache.put(memoryId, messages);
+    }
+    // ...
+};
+```
+运用事先定义好的 `maximumSize(500)` 及 `expireAfterAccess(30m)`的 `Caffeine LRU Cache` 接管底层的读写，系统自动在达到 500 个活跃用户时淘汰旧记忆。
+
+---
+
 ### 1.7 SSE fetch 请求域名错误导致 405（前端级 Bug）
 
 **问题**：广播剧一键生成、AI 正文生成、AI 改写等 SSE 流式接口全部返回 405 Method Not Allowed，后端日志完全没有请求记录。
