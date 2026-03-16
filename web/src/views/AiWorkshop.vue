@@ -617,12 +617,14 @@ async function sendMessage(text) {
     const m3 = reply.match(/(https?:\/\/[^\s\n\])]*(?:audio|tts|\.mp3|\.wav)[^\s\n\])]*)/i)
     audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
 
-    // Pipeline steps
+    // Pipeline steps — 仅在有音频URL时才显示（证明工具确实被调用了）
     const steps = []
-    if (reply.includes('台本')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
-    if (reply.includes('情感')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
-    if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
-    if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
+    if (audioUrl) {
+      if (reply.includes('台本')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
+      if (reply.includes('情感')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
+      if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
+      steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
+    }
 
     // Clean reply
     let cleanReply = reply
