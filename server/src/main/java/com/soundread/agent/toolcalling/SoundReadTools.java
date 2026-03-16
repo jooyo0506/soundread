@@ -12,9 +12,9 @@ import com.soundread.service.CreationService;
 import com.soundread.service.QuotaService;
 import com.soundread.service.VoiceService;
 import dev.langchain4j.agent.tool.Tool;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
@@ -36,7 +36,6 @@ import java.util.List;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class SoundReadTools {
 
     private final LlmRouter llmRouter;
@@ -44,6 +43,31 @@ public class SoundReadTools {
     private final CreationService creationService;
     private final TtsV2Service ttsV2Service;
     private final QuotaService quotaService;
+
+    /** 显式绑定的用户（用于流式调用时注入，解决 ThreadLocal 丢失问题） */
+    private final User explicitUser;
+
+    /** 默认构造函数（Spring 注入用，无显式用户） */
+    @Autowired
+    public SoundReadTools(LlmRouter llmRouter, VoiceService voiceService, CreationService creationService,
+            TtsV2Service ttsV2Service, QuotaService quotaService) {
+        this.llmRouter = llmRouter;
+        this.voiceService = voiceService;
+        this.creationService = creationService;
+        this.ttsV2Service = ttsV2Service;
+        this.quotaService = quotaService;
+        this.explicitUser = null;
+    }
+
+    /** 拷贝构造函数（供 Controller 针对于当前请求创建一个包含有具体用户状态的工具集） */
+    public SoundReadTools(SoundReadTools source, User user) {
+        this.llmRouter = source.llmRouter;
+        this.voiceService = source.voiceService;
+        this.creationService = source.creationService;
+        this.ttsV2Service = source.ttsV2Service;
+        this.quotaService = source.quotaService;
+        this.explicitUser = user;
+    }
 
     /**
      * 存放当前调用会话的用户，供 Tool 方法读取当前操作者
@@ -60,8 +84,11 @@ public class SoundReadTools {
         CURRENT_USER.remove();
     }
 
-    /** 从 ThreadLocal 获取当前用户，获取不到说明调用链路异常 */
+    /** 从 ThreadLocal 或显式状态获取当前用户，获取不到说明调用链路异常 */
     private User getUser() {
+        if (explicitUser != null) {
+            return explicitUser;
+        }
         User user = CURRENT_USER.get();
         if (user == null) {
             throw new RuntimeException("Tool 调用链路异常：未找到当前用户上下文，请检查 ThreadLocal 是否正确传递");

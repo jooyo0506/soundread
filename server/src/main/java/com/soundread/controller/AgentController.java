@@ -75,8 +75,8 @@ public class AgentController {
     /** 全局唯一的 Agent 实例（同步版，保留兼容） */
     private SmartAssistant agent;
 
-    /** 流式 Agent 实例（SSE 推送） */
-    private StreamingSmartAssistant streamingAgent;
+    /** 流式模型基础实例（复用连接池，单例） */
+    private OpenAiStreamingChatModel streamingModel;
 
     private static final long SSE_TIMEOUT_MS = 120_000L;
 
@@ -102,8 +102,8 @@ public class AgentController {
     public void init() {
         try {
             this.agent = buildAgent();
-            this.streamingAgent = buildStreamingAgent();
-            log.info("[AgentController] Agent + StreamingAgent 初始化完成");
+            this.streamingModel = buildStreamingModel();
+            log.info("[AgentController] Agent + StreamingModel 初始化完成");
         } catch (Exception e) {
             log.warn("[AgentController] Agent 初始化失败（模型未配置？）: {}", e.getMessage());
         }
@@ -192,8 +192,8 @@ public class AgentController {
             return emitter;
         }
 
-        if (streamingAgent == null) {
-            emitter.completeWithError(new RuntimeException("StreamingAgent 未初始化"));
+        if (streamingModel == null) {
+            emitter.completeWithError(new RuntimeException("StreamingModel 未配置，流式对话不可用"));
             return emitter;
         }
 
@@ -219,9 +219,21 @@ public class AgentController {
         try {
             User user = authService.getCurrentUser();
             String memoryId = user.getId().toString();
-            SoundReadTools.setCurrentUser(user);
 
-            TokenStream tokenStream = streamingAgent.chat(memoryId, message);
+            // 构建请求级别的工具集，将 User 显式传递进去，解决 ThreadLocal 丢失问题
+            SoundReadTools requestTools = new SoundReadTools(this.soundReadTools, user);
+
+            // 每次请求动态创建代理（LangChain4j 的代理对象非常轻量）
+            ChatMemoryProvider requestMemoryProvider = id -> MessageWindowChatMemory.builder()
+                    .id(id).maxMessages(10).chatMemoryStore(sharedMemoryStore).build();
+
+            StreamingSmartAssistant requestAgent = AiServices.builder(StreamingSmartAssistant.class)
+                    .streamingChatLanguageModel(streamingModel)
+                    .tools(requestTools)
+                    .chatMemoryProvider(requestMemoryProvider)
+                    .build();
+
+            TokenStream tokenStream = requestAgent.chat(memoryId, message);
             StringBuilder fullReply = new StringBuilder();
 
             tokenStream
@@ -241,8 +253,6 @@ public class AgentController {
                             emitter.complete();
                         } catch (Exception e) {
                             log.warn("SSE complete error: {}", e.getMessage());
-                        } finally {
-                            SoundReadTools.clearCurrentUser();
                         }
                     })
                     .onError(error -> {
@@ -331,10 +341,10 @@ public class AgentController {
     }
 
     /**
-     * 构建流式 Agent — 使用 StreamingChatLanguageModel 实现 SSE 逐 token 推送
+     * 构建流式模型单例（只建一次，复用内部 HTTP 连接池）
      */
-    private StreamingSmartAssistant buildStreamingAgent() {
-        OpenAiStreamingChatModel streamingModel = null;
+    private OpenAiStreamingChatModel buildStreamingModel() {
+        OpenAiStreamingChatModel model = null;
 
         for (String provider : TOOL_CALLING_PROVIDERS) {
             String apiKey = llmProperties.getApiKeys().get(provider);
@@ -342,7 +352,7 @@ public class AgentController {
                 String baseUrl = llmProperties.getBaseUrls().getOrDefault(provider, "");
                 String modelName = llmProperties.getDefaultModels().getOrDefault(provider, "");
 
-                streamingModel = OpenAiStreamingChatModel.builder()
+                model = OpenAiStreamingChatModel.builder()
                         .apiKey(apiKey)
                         .baseUrl(baseUrl)
                         .modelName(modelName)
@@ -354,22 +364,11 @@ public class AgentController {
             }
         }
 
-        if (streamingModel == null) {
+        if (model == null) {
             log.warn("[AgentController] 流式模型未配置，SSE 端点不可用");
-            return null;
         }
 
-        ChatMemoryProvider memoryProvider = memoryId -> MessageWindowChatMemory.builder()
-                .id(memoryId)
-                .maxMessages(10)
-                .chatMemoryStore(sharedMemoryStore)
-                .build();
-
-        return AiServices.builder(StreamingSmartAssistant.class)
-                .streamingChatLanguageModel(streamingModel)
-                .tools(soundReadTools)
-                .chatMemoryProvider(memoryProvider)
-                .build();
+        return model;
     }
 
     // ==================== Fast-path: simple greetings ====================
