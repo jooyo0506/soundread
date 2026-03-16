@@ -277,40 +277,40 @@ const inputPlaceholder = computed(() =>
 
 const scenes = [
   {
-    id: 'radio', icon: 'fas fa-headphones', iconBg: 'bg-cyan-500/20', title: '深夜电台', desc: '治愈独白·情感',
+    id: 'radio', icon: 'fas fa-headphones', iconBg: 'bg-cyan-500/20', title: '深夜电台', desc: '🌙 治愈独白·情感',
     borderClass: 'bg-gradient-to-br from-cyan-900/20 to-[#0a0a1a] border-cyan-500/15 active:border-cyan-500/40',
     placeholder: '描述你的电台主题...',
-    quickTags: ['深夜雨天的独白', '一个人的咋啡馆', '给过去的自己写信', '城市夜归人的故事']
+    quickTags: ['深夜雨天的独白', '一个人的咖啡馆', '给过去的自己写信', '城市夜归人的故事']
   },
   {
-    id: 'blessing', icon: 'fas fa-envelope', iconBg: 'bg-pink-500/20', title: '情感祝福', desc: '生日·表白·问候',
+    id: 'blessing', icon: 'fas fa-envelope', iconBg: 'bg-pink-500/20', title: '情感祝福', desc: '💌 生日·表白·问候',
     borderClass: 'bg-gradient-to-br from-pink-900/20 to-[#0a0a1a] border-pink-500/15 active:border-pink-500/40',
     placeholder: '想送给谁？什么场合？',
     quickTags: ['给女朋友的生日祝福', '送给妈妈的母亲节寄语', '毕业季给好友的话', '表白独白']
   },
   {
-    id: 'video', icon: 'fas fa-video', iconBg: 'bg-orange-500/20', title: '视频配音', desc: '解说·旁白·Vlog',
+    id: 'video', icon: 'fas fa-video', iconBg: 'bg-orange-500/20', title: '视频配音', desc: '🎬 解说·旁白·Vlog',
     borderClass: 'bg-gradient-to-br from-orange-900/20 to-[#0a0a1a] border-orange-500/15 active:border-orange-500/40',
     placeholder: '描述视频内容和风格...',
-    quickTags: ['美食探店解说', '旅行Vlog旁白', '知识科普讲解', '产品开笜评测']
+    quickTags: ['美食探店解说', '旅行Vlog旁白', '知识科普讲解', '产品开箱评测']
   },
   {
-    id: 'story', icon: 'fas fa-book', iconBg: 'bg-purple-500/20', title: '有声故事', desc: '睡前·童话·绘本',
+    id: 'story', icon: 'fas fa-book', iconBg: 'bg-purple-500/20', title: '有声故事', desc: '🌟 睡前·童话·绘本',
     borderClass: 'bg-gradient-to-br from-purple-900/20 to-[#0a0a1a] border-purple-500/15 active:border-purple-500/40',
     placeholder: '想听什么故事？',
     quickTags: ['给孩子的睡前童话', '一个温暖的冬日故事', '森林里的小动物', '星空下的冒险']
   },
   {
-    id: 'commerce', icon: 'fas fa-store', iconBg: 'bg-emerald-500/20', title: '带货口播', desc: '产品·直播话术',
+    id: 'commerce', icon: 'fas fa-store', iconBg: 'bg-emerald-500/20', title: '带货口播', desc: '💰 产品·直播话术',
     borderClass: 'bg-gradient-to-br from-emerald-900/20 to-[#0a0a1a] border-emerald-500/15 active:border-emerald-500/40',
     placeholder: '什么产品？卖点？',
     quickTags: ['护肤品种草文案', '美食零食推荐', '数码产品评测口播', '服装穿搭解说']
   },
   {
-    id: 'free', icon: 'fas fa-pen', iconBg: 'bg-yellow-500/20', title: '自由创作', desc: '聊天·AI帮你想',
+    id: 'free', icon: 'fas fa-pen', iconBg: 'bg-yellow-500/20', title: '自由创作', desc: '✨ 随便聊·AI帮你想',
     borderClass: 'bg-gradient-to-br from-yellow-900/20 to-[#0a0a1a] border-yellow-500/15 active:border-yellow-500/40',
     placeholder: '告诉我你想做什么...',
-    quickTags: ['有哪些音色可以选？', '帮我写段深情独白', '我有哪些作品？', '合成一段语音试试']
+    quickTags: ['有哪些音色可以选？', '帮我写段深情独白', '合成一段语音试试', '给我讲个冷笑话']
   }
 ]
 
