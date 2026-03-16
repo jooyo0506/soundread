@@ -81,6 +81,12 @@ public class AgentController {
     private static final long SSE_TIMEOUT_MS = 120_000L;
 
     /**
+     * 共享的 ChatMemoryStore — sync/streaming Agent 共用
+     * 重置对话时直接操作此 store 即可真正清空记忆
+     */
+    private final ChatMemoryStore sharedMemoryStore = new InMemoryChatMemoryStore();
+
+    /**
      * Caffeine 驱动的 ChatMemory 缓存
      * - 最多 500 个用户会话
      * - 30 分钟不活跃自动回收
@@ -159,11 +165,16 @@ public class AgentController {
      * 清空用户的对话记忆
      */
     @PostMapping("/reset")
-    public Result<?> reset(@RequestHeader(value = "Authorization", required = false) String token) {
-        if (token != null) {
-            String memoryId = String.valueOf(token.hashCode());
+    public Result<?> reset() {
+        try {
+            User user = authService.getCurrentUser();
+            String memoryId = user.getId().toString();
+            // 真正清空 LangChain4j ChatMemoryStore 中的消息
+            sharedMemoryStore.deleteMessages(memoryId);
             memoryCache.invalidate(memoryId);
             log.info("[AgentController] 已清空用户 {} 的对话记忆", memoryId);
+        } catch (Exception e) {
+            log.warn("[AgentController] 重置失败: {}", e.getMessage());
         }
         return Result.ok("对话已重置");
     }
@@ -305,15 +316,11 @@ public class AgentController {
             throw new RuntimeException("未配置支持 Tool Calling 的模型 API Key");
         }
 
-        // Caffeine 支撑的 ChatMemoryStore
-        ChatMemoryStore memoryStore = new InMemoryChatMemoryStore();
-
         // chatMemoryProvider：按 memoryId 为每个用户创建独立的 ChatMemory
-        // 每个用户保留最近 20 条消息，避免上下文过长
         ChatMemoryProvider memoryProvider = memoryId -> MessageWindowChatMemory.builder()
                 .id(memoryId)
-                .maxMessages(10) // 20->10: less context = fewer input tokens = faster LLM response
-                .chatMemoryStore(memoryStore)
+                .maxMessages(10)
+                .chatMemoryStore(sharedMemoryStore)
                 .build();
 
         return AiServices.builder(SmartAssistant.class)
@@ -352,11 +359,10 @@ public class AgentController {
             return null;
         }
 
-        ChatMemoryStore memoryStore = new InMemoryChatMemoryStore();
         ChatMemoryProvider memoryProvider = memoryId -> MessageWindowChatMemory.builder()
                 .id(memoryId)
                 .maxMessages(10)
-                .chatMemoryStore(memoryStore)
+                .chatMemoryStore(sharedMemoryStore)
                 .build();
 
         return AiServices.builder(StreamingSmartAssistant.class)
