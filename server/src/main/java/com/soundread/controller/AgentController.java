@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * AI Agent 智能助手 — 企业级 Tool Calling 控制器
@@ -111,6 +113,12 @@ public class AgentController {
 
         log.info("[AgentController] 用户输入：{}", message);
 
+        // Fast-path: simple greetings skip LLM entirely (<50ms vs 20s+)
+        if (isSimpleGreeting(message)) {
+            log.info("[AgentController] Fast-path greeting, skipping LLM");
+            return Result.ok(Map.of("reply", buildGreetingReply()));
+        }
+
         try {
             // 在 HTTP 请求线程中提前获取用户（Sa-Token 需要 Request 上下文）
             User user = authService.getCurrentUser();
@@ -189,7 +197,7 @@ public class AgentController {
                         .modelName(modelName)
                         .temperature(0.7)
                         .timeout(Duration.ofSeconds(60))
-                        .maxTokens(1024)
+                        .maxTokens(512) // Agent replies are typically <200 chars, lower cap reduces inference time
                         .build();
                 log.info("[AgentController] 使用模型: {}/{}", provider, modelName);
                 break;
@@ -207,7 +215,7 @@ public class AgentController {
         // 每个用户保留最近 20 条消息，避免上下文过长
         ChatMemoryProvider memoryProvider = memoryId -> MessageWindowChatMemory.builder()
                 .id(memoryId)
-                .maxMessages(20)
+                .maxMessages(10) // 20->10: less context = fewer input tokens = faster LLM response
                 .chatMemoryStore(memoryStore)
                 .build();
 
@@ -216,6 +224,45 @@ public class AgentController {
                 .tools(soundReadTools)
                 .chatMemoryProvider(memoryProvider)
                 .build();
+    }
+
+    // ==================== Fast-path: simple greetings ====================
+
+    private static final Set<String> GREETING_EXACT = Set.of(
+            "你好", "嗨", "hi", "hello", "hey", "哈喽", "在吗", "在不在",
+            "您好", "嘿", "你好呀", "你好啊", "嗨嗨", "哈喽哈喽");
+
+    private static final Pattern GREETING_PATTERN = Pattern.compile(
+            "^(你好[啊呀吗嘛]?|嗨[~！!]?|hi[~!]?|hello[~!]?|hey[~!]?|哈喽[~！!]?|在吗[？?]?|在不在[？?]?|你是谁[？?]?)$",
+            Pattern.CASE_INSENSITIVE);
+
+    /**
+     * 判断是否为简单问候（<10字的寒暄），命中后跳过 LLM 调用
+     */
+    private boolean isSimpleGreeting(String message) {
+        String trimmed = message.replaceAll("[\\s，。！？,.!?~]+", "").toLowerCase();
+        if (trimmed.length() > 10)
+            return false;
+        if (GREETING_EXACT.contains(trimmed))
+            return true;
+        return GREETING_PATTERN.matcher(trimmed).matches();
+    }
+
+    private String buildGreetingReply() {
+        String[] replies = {
+                "你好！\uD83D\uDC4B 我是你的 AI 声音制作人\n\n" +
+                        "点击下方功能按钮开始，或直接描述你的需求：\n" +
+                        "- 告诉我一个场景（如\"深夜电台\"）\u2192 我来写词+配音\n" +
+                        "- 发一段文字 \u2192 我帮你合成语音\n" +
+                        "- 问我\"有什么音色\" \u2192 查看可用声音",
+                "嗨！欢迎来到声音工坊 \uD83C\uDFA7\n\n" +
+                        "我可以帮你：\n" +
+                        "1. \uD83D\uDCDD 写台本（电台独白、祝福语、解说词）\n" +
+                        "2. \uD83C\uDFA4 合成语音（多种AI音色可选）\n" +
+                        "3. \uD83D\uDE0A 分析情感（推荐最佳语气）\n\n" +
+                        "试试直接说：帮我写一段深夜电台的独白"
+        };
+        return replies[(int) (System.currentTimeMillis() % replies.length)];
     }
 
     /**
