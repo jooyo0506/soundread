@@ -19,8 +19,8 @@ export const ttsApi = {
      * @param {Object} data - { text, voiceId, speedRatio, volumeRatio, pitchRatio }
      */
     synthesizeShort(data) {
-        // TTS 合成调用云端 API，单独设置 30s 超时
-        return request.post('/tts/short', data, { timeout: 30000 })
+        // TTS 合成调用云端 API，单独设置 60s 超时（新闻播报等长文本分片可能需要较久）
+        return request.post('/tts/short', data, { timeout: 60000 })
     },
 
     /**

@@ -3167,7 +3167,7 @@ const synthesizeChunk = async (text, voiceId) => {
       voiceType: voiceId,
       mode: emotionInstruction.value ? 'voice_command' : 'default',
       userKey: authStore.user?.id?.toString() || 'anonymous'
-    })
+    }, { timeout: 60000 })
     return data?.audioUrl
   } else {
     const res = await ttsApi.synthesizeShort({ text: cleanText, voiceId })
@@ -3297,7 +3297,7 @@ const synthesizeEmotionV2 = async () => {
         voiceType: voiceId,
         mode: emotionInstruction.value ? 'voice_command' : 'default',
         userKey: authStore.user?.id?.toString() || 'anonymous'
-      })
+      }, { timeout: 60000 })
       if (data?.audioUrl) {
         audioUrls.push(data.audioUrl)
         if (i === 0) {
