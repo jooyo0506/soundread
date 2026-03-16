@@ -56,7 +56,11 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
-            <div class="ai-msg-content bg-white/[0.04] border border-white/[0.08] rounded-2xl rounded-tl-sm p-3 text-[13px] text-gray-200 leading-relaxed" v-html="renderMarkdown(msg.text)"></div>
+            <!-- 流式打字中显示光标 -->
+            <div v-if="msg.streaming && !msg.text" class="ai-msg-content bg-white/[0.04] border border-white/[0.08] rounded-2xl rounded-tl-sm p-3 text-[13px] text-gray-400 leading-relaxed">
+              <span class="typing-dots">思考中</span>
+            </div>
+            <div v-else-if="msg.text" class="ai-msg-content bg-white/[0.04] border border-white/[0.08] rounded-2xl rounded-tl-sm p-3 text-[13px] text-gray-200 leading-relaxed" v-html="renderMarkdown(msg.text)"></div>
 
             <!-- ★ Action Buttons (welcome / post-synthesis) -->
             <div v-if="msg.actions && msg.actions.length" class="mt-2 flex flex-wrap gap-1.5">
@@ -97,8 +101,8 @@
               </div>
             </div>
 
-            <!-- Pipeline Steps -->
-            <div v-if="msg.steps && msg.steps.length" class="mt-1.5 space-y-0.5">
+            <!-- Pipeline Steps — 仅在有实质工具调用时显示 -->
+            <div v-if="msg.steps && msg.steps.length > 1" class="mt-1.5 space-y-0.5">
               <div v-for="(step, si) in msg.steps" :key="si"
                    class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px]"
                    :class="step.done ? 'bg-green-500/5 text-green-400' : 'bg-white/[0.02] text-gray-500'">
@@ -128,54 +132,8 @@
         </div>
       </div>
 
-      <!-- 管线进度卡 -->
-      <div v-if="loading" class="flex gap-2 mb-3">
-          <div class="w-7 h-7 rounded-[8px] bg-white/8 border border-white/10 flex justify-center items-center shrink-0 mt-0.5"
-             :class="loadingStageIdx < pipelineStages.length - 1 ? 'animate-pulse' : ''">
-            <span class="text-[9px] font-black text-white/60 tracking-tight">SR</span>
-          </div>
-        <div class="flex-1 min-w-0">
-          <div class="text-[9px] text-gray-600 mb-0.5">AI 声音制作人</div>
-          <div class="pipeline-card">
-            <!-- 声波动画 + 标题 -->
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-[11px] font-bold text-cyan-300">{{ loadingText }}</span>
-              <div class="pipeline-wave">
-                <span v-for="i in 5" :key="i" :style="`--di:${i}`"></span>
-              </div>
-            </div>
-            <!-- 步骤列表 -->
-            <div class="space-y-1.5">
-              <div v-for="(stage, i) in pipelineStages" :key="i"
-                   class="flex items-center gap-2 text-[10px] transition-all duration-300">
-                <!-- 图标 -->
-                <div class="w-4 h-4 rounded-full flex items-center justify-center shrink-0"
-                     :class="i < loadingStageIdx ? 'bg-green-500/20' : i === loadingStageIdx ? 'bg-cyan-500/20 animate-pulse' : 'bg-white/5'">
-                  <i :class="i < loadingStageIdx
-                    ? 'fas fa-check text-green-400'
-                    : i === loadingStageIdx
-                    ? 'fas fa-circle-notch fa-spin text-cyan-400'
-                    : 'fas fa-circle text-gray-700'"
-                     class="text-[8px]"></i>
-                </div>
-                <!-- 标签 -->
-                <span :class="i < loadingStageIdx ? 'text-green-400' : i === loadingStageIdx ? 'text-cyan-300 font-bold' : 'text-gray-600'">{{ stage.label }}</span>
-                <!-- 完成时间 -->
-                <span v-if="i < loadingStageIdx" class="ml-auto text-gray-600">✓</span>
-                <!-- 进度条（当前阶段）-->
-                <div v-else-if="i === loadingStageIdx" class="ml-auto flex-1 max-w-[60px] h-1 bg-white/5 rounded-full overflow-hidden">
-                  <div class="h-full bg-gradient-to-r from-cyan-500 to-blue-400 rounded-full pipeline-fill"></div>
-                </div>
-              </div>
-            </div>
-            <!-- 预期时间提示 -->
-            <div class="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between">
-              <span class="text-[9px] text-gray-600">{{ pipelineTip }}</span>
-              <span class="text-[9px] text-gray-700">{{ loadingSeconds }}s</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- ★ 简洁思考提示（替代旧的假管线进度卡）-->
+      <!-- SSE 流式模式下，文字已经在 streamMsg 气泡中实时显示，这里不再需要多步进度 -->
     </div>
 
     <!-- Quick Tags -->
@@ -293,7 +251,7 @@ const WELCOME_ACTIONS = [
 function buildWelcomeMessage() {
   return {
     role: 'ai',
-    text: '你好！我是你的 AI 声音制作人\n\n点击下方功能开始，或直接描述你的需求：',
+    text: '你好呀 👋 我是小声，你的 AI 声音制作人！\n\n告诉我一个场景（如"深夜电台"），我来帮你写词 + 配音 🎙️',
     actions: [...WELCOME_ACTIONS]
   }
 }
@@ -937,42 +895,16 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 管线卡片 */
-.pipeline-card {
-  background: rgba(14, 30, 54, 0.8);
-  border: 1px solid rgba(34, 211, 238, 0.15);
-  border-radius: 16px 16px 16px 4px;
-  padding: 12px 14px;
-  backdrop-filter: blur(8px);
+/* 打字思考动画 */
+.typing-dots::after {
+  content: '...';
+  animation: tdots 1.5s steps(4, end) infinite;
 }
-
-/* 声波动画 */
-.pipeline-wave {
-  display: flex; align-items: center; gap: 2px; height: 16px;
-}
-.pipeline-wave span {
-  display: block; width: 2px; border-radius: 2px;
-  background: linear-gradient(to top, rgba(34,211,238,0.3), rgba(34,211,238,0.8));
-  animation: pw calc(0.7s + var(--di) * 0.1s) ease-in-out infinite alternate;
-}
-.pipeline-wave span:nth-child(1) { height: 6px; }
-.pipeline-wave span:nth-child(2) { height: 12px; }
-.pipeline-wave span:nth-child(3) { height: 16px; }
-.pipeline-wave span:nth-child(4) { height: 12px; }
-.pipeline-wave span:nth-child(5) { height: 6px; }
-@keyframes pw {
-  from { transform: scaleY(1); opacity: 0.6; }
-  to   { transform: scaleY(0.3); opacity: 1; }
-}
-
-/* 当前步骤进度条 */
-.pipeline-fill {
-  animation: pfill 2.5s ease-in-out infinite;
-}
-@keyframes pfill {
-  0%   { width: 5%; }
-  50%  { width: 85%; }
-  100% { width: 5%; }
+@keyframes tdots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
 }
 
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
