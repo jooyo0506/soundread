@@ -4,6 +4,33 @@
 
 ---
 
+## [2026-03-17] — Agent SSE 流式输出 + TTS 并行合成 + 架构修复
+
+### 🔥 性能优化
+
+| 优化项 | 文件 | 效果 |
+|--------|------|------|
+| Agent SSE 流式输出 | `StreamingSmartAssistant.java`(新), `AgentController.java`, `AiWorkshop.vue` | 首 token < 1s (vs 20s+) |
+| 简单问候快速通道 | `AgentController.java` | "你好" ~50ms (跳过 LLM) |
+| LLM 参数调优 | `AgentController.java` | maxTokens 1024→512, maxMessages 20→10 |
+| TTS 并行合成 | `StudioWorkbench.vue` | 5 片: ~50s → ~20s (并发≤3) |
+
+### 🐛 Bug 修复
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| 重置对话后记忆仍存在 | `reset()` 用 `token.hashCode()` 但 `chat()` 用 `user.getId()`, 且清了错误的存储 | 统一 memoryId + 调用 `sharedMemoryStore.deleteMessages()` |
+
+### 🔧 架构
+
+| 改动 | 文件 |
+|------|------|
+| 修复 WebSocketConfig 5 个编译错误 | `WebSocketConfig.java` — 移除不存在的 `InteractionWebSocketHandler` |
+| TTS v2 API 统一入口 | `tts.js` — 新增 `synthesizeV2()` |
+| sync/streaming Agent 共享 memoryStore | `AgentController.java` — 对话上下文在两种模式间连续 |
+
+---
+
 ## [2026-03-15] — 游客浏览模式 + API 限流防刷 + generateLyrics 权限修复
 
 ### 🟢 游客浏览模式

@@ -154,10 +154,59 @@ Agent 完整工作流（LLM 决策 → 生成台本 → 再次 LLM → 合成语
 
 ---
 
-## 九、文件修改清单
+## 九、[2026-03-17] Agent SSE 流式输出
+
+### 问题现象
+Agent 回复需要 15-22s 同步阻塞，用户只能看到假进度条。输入"你好"也需要 20s。
+
+### 优化方案
+
+| 层级 | 措施 | 文件 |
+|------|------|------|
+| 后端 | 新增 `StreamingSmartAssistant` 接口返回 `TokenStream` | `StreamingSmartAssistant.java` |
+| 后端 | `POST /api/agent/chat-stream` SSE 端点，使用 `OpenAiStreamingChatModel` | `AgentController.java` |
+| 前端 | `sendMessage()` 改用 `fetch ReadableStream`，逐 token 更新消息 | `AiWorkshop.vue` |
+| 前端 | 保留 sync `/chat` 作为 fallback（SSE 失败时自动降级） | `AiWorkshop.vue` |
+| 快速通道 | 简单问候（你好/嗨/hi）跳过 LLM 直接返回预设回复 | `AgentController.java` |
+| LLM 调参 | maxTokens 1024→512，maxMessages 20→10 | `AgentController.java` |
+
+### 优化前后对比
+
+| 指标 | 优化前 | 优化后 |
+|------|--------|--------|
+| "你好" 响应 | ~20s | ~50ms (快速通道) |
+| 常规问题首 token | ~15s | < 1s (SSE) |
+| 完整回复显示 | 15-22s 后一次性出现 | 逐字实时打字效果 |
+
+---
+
+## 十、[2026-03-17] 重置对话后记忆仍存在
+
+### 问题现象
+用户点击"重置"按钮后，重新发消息时 Agent 仍记得之前的对话内容。
+
+### 根因分析
+`reset()` 方法的 memoryId 使用 `token.hashCode()`，但 `chat()`/`chatStream()` 使用 `user.getId().toString()`，**两者永远不匹配**。此外 `reset()` 调用 `memoryCache.invalidate()` 清的是 Caffeine cache，而实际记忆存储在 `InMemoryChatMemoryStore` 中。
+
+### 修复方案
+
+| 改动 | 说明 |
+|------|------|
+| memoryId 统一 | `reset()` 改用 `user.getId().toString()` |
+| 共享 memoryStore | `InMemoryChatMemoryStore` 提升为实例字段 `sharedMemoryStore`，sync/streaming 共用 |
+| 正确清空 | `reset()` 调用 `sharedMemoryStore.deleteMessages(memoryId)` |
+
+---
+
+## 文件修改清单
 
 | 文件 | 改动 |
 |------|------|
 | `SmartAssistant.java` | voiceId 修正 + SystemMessage 三版迭代 → ReAct 思考框架 |
-| `AgentController.java` | 模型 timeout 30s→60s / 供应商优先级 qwen 优先 |
-| `AiWorkshop.vue` | 全面重写 — 按钮交互/编号拦截/分阶段 Loading/增强播放器/自动播放/重新生成/快捷操作/localStorage 持久化 |
+| `StreamingSmartAssistant.java` | **新增** 流式 Agent 接口（TokenStream） |
+| `AgentController.java` | SSE 流式端点 / 快速通道 / 参数优化 / 共享 memoryStore / reset 修复 |
+| `AiWorkshop.vue` | SSE ReadableStream / 实时打字效果 / sync fallback |
+| `WebSocketConfig.java` | 移除不存在的 `InteractionWebSocketHandler` |
+| `StudioWorkbench.vue` | TTS 并行合成（并发≤3） |
+| `tts.js` | 新增 `synthesizeV2()` 统一入口 |
+
