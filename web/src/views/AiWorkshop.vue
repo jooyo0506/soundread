@@ -159,6 +159,14 @@
             class="w-full bg-white/5 border border-white/10 rounded-2xl px-3.5 py-2 text-[13px] text-white placeholder-gray-600 resize-none focus:outline-none focus:border-cyan-500/50 transition-colors overflow-hidden"
             style="max-height: 80px;"></textarea>
         </div>
+        <!-- ★ 语音输入按钮 -->
+        <button @click="toggleVoiceInput"
+          class="w-9 h-9 rounded-full flex justify-center items-center shrink-0 transition-all cursor-pointer mb-0.5"
+          :class="isListening
+            ? 'bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.5)] animate-pulse'
+            : 'bg-white/5 border border-white/10 text-gray-400 active:bg-white/10'">
+          <i class="fas fa-microphone text-xs"></i>
+        </button>
         <button @click="sendMessage(inputText)" :disabled="!inputText.trim() || loading"
           class="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex justify-center items-center text-white shrink-0 shadow-[0_0_10px_rgba(34,211,238,0.25)] active:scale-90 transition-all disabled:opacity-30 disabled:shadow-none cursor-pointer mb-0.5">
           <i class="fas fa-paper-plane text-xs"></i>
@@ -230,8 +238,10 @@ const inputBar = ref(null)
 const activeScene = ref(null)
 const inputBarHeight = ref(56)
 let loadingTimer = null
-const loadingStageIdx = ref(0)  // 当前管线步骤
-const loadingSeconds = ref(0)   // 已等待秒数
+const loadingStageIdx = ref(0)
+const loadingSeconds = ref(0)
+const isListening = ref(false)
+let speechRecognition = null
 
 // ═══════════════════════════════════════════════════════
 // Welcome message with action buttons
@@ -241,11 +251,7 @@ const WELCOME_ACTIONS = [
   { label: '写台本', id: 'script', icon: 'fas fa-pen-nib',
     style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300 active:bg-cyan-500/20' },
   { label: '合成语音', id: 'synth', icon: 'fas fa-microphone',
-    style: 'bg-blue-500/10 border-blue-500/20 text-blue-300 active:bg-blue-500/20' },
-  { label: '情感分析', id: 'emotion', icon: 'fas fa-theater-masks',
-    style: 'bg-purple-500/10 border-purple-500/20 text-purple-300 active:bg-purple-500/20' },
-  { label: '我的作品', id: 'works', icon: 'fas fa-folder-open',
-    style: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300 active:bg-emerald-500/20' }
+    style: 'bg-blue-500/10 border-blue-500/20 text-blue-300 active:bg-blue-500/20' }
 ]
 
 function buildWelcomeMessage() {
@@ -451,6 +457,59 @@ function stopLoadingStages() {
     clearInterval(loadingTimer)
     loadingTimer = null
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// 语音输入（Web Speech API，纯前端免费）
+// ═══════════════════════════════════════════════════════
+
+function toggleVoiceInput() {
+  if (isListening.value) {
+    // 停止录音
+    speechRecognition?.stop()
+    isListening.value = false
+    return
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    toastStore.show('当前浏览器不支持语音输入，请使用 Chrome')
+    return
+  }
+
+  speechRecognition = new SpeechRecognition()
+  speechRecognition.lang = 'zh-CN'
+  speechRecognition.interimResults = true
+  speechRecognition.continuous = false
+
+  speechRecognition.onstart = () => {
+    isListening.value = true
+  }
+
+  speechRecognition.onresult = (event) => {
+    let transcript = ''
+    for (let i = 0; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript
+    }
+    inputText.value = transcript
+  }
+
+  speechRecognition.onend = () => {
+    isListening.value = false
+    // 语音结束后自动发送
+    if (inputText.value.trim()) {
+      sendMessage(inputText.value)
+    }
+  }
+
+  speechRecognition.onerror = (e) => {
+    isListening.value = false
+    if (e.error === 'not-allowed') {
+      toastStore.show('请允许麦克风权限')
+    }
+  }
+
+  speechRecognition.start()
 }
 
 // ═══════════════════════════════════════════════════════
