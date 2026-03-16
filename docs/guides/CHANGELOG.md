@@ -19,7 +19,9 @@
 
 | 问题 | 根因 | 修复 |
 |------|------|------|
-| 重置对话后记忆仍存在 | `reset()` 用 `token.hashCode()` 但 `chat()` 用 `user.getId()`, 且清了错误的存储 | 统一 memoryId + 调用 `sharedMemoryStore.deleteMessages()` |
+| 问候语/闲聊回复繁琐且拒绝创作 | `SmartAssistant` Prompt | 引入 ReAct 推理架构，意图拦截，限制闲聊，强化主动工作能力 |
+| Agent 流式生成台本报错 `未找到当前用户上下文` | `SoundReadTools`, `AgentController` | 原单例工具类的 `ThreadLocal` 在流式回调的 OkHttp 异步线程池中丢失。修复为请求级代理：针对每次会话 `new SoundReadTools(user)` 显式持有当前用户。 |
+| 对话长时运行会导致 OOM | `AgentController` | `sharedMemoryStore` 原先被硬编码为无上限的 `InMemoryChatMemoryStore`。现重写匿名实现类将其与 `Caffeine` 缓存绑定，超 500 人或 30 分钟不活跃自动淘汰上下文内存。 |
 
 ### 🔧 架构
 
@@ -28,6 +30,7 @@
 | 修复 WebSocketConfig 5 个编译错误 | `WebSocketConfig.java` — 移除不存在的 `InteractionWebSocketHandler` |
 | TTS v2 API 统一入口 | `tts.js` — 新增 `synthesizeV2()` |
 | sync/streaming Agent 共享 memoryStore | `AgentController.java` — 对话上下文在两种模式间连续 |
+| Agent 架构从单例解耦为请求级代理 | `AgentController.java` — 抽出 `OpenAiStreamingChatModel` 为单例连接池，Agent 本身做到每次请求动态构建，完美解决并发上下文安全 |
 
 ---
 
