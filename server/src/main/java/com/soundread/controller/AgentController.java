@@ -305,7 +305,7 @@ public class AgentController {
                         .modelName(modelName)
                         .temperature(0.7)
                         .timeout(Duration.ofSeconds(60))
-                        .maxTokens(512) // Agent replies are typically <200 chars, lower cap reduces inference time
+                        .maxTokens(1024) // 恢复1024: 512导致模型思考空间不足,回复质量下降
                         .build();
                 log.info("[AgentController] 使用模型: {}/{}", provider, modelName);
                 break;
