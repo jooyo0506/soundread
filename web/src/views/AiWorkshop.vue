@@ -523,73 +523,166 @@ async function sendMessage(text) {
   }
 
   loading.value = true
-  startLoadingStages(userMsg)
+  loadingText.value = 'AI 思考中...'
+  loadingSeconds.value = 0
+  loadingStageIdx.value = 0
+
+  // 实时显示 AI 回复的 streaming message
+  const streamMsg = { role: 'ai', text: '', streaming: true }
+  messages.value.push(streamMsg)
+  await scrollToBottom()
+
+  // 计时器
+  loadingTimer = setInterval(() => { loadingSeconds.value++ }, 1000)
+
+  const SSE_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+  const TOKEN_KEY = 'sr_token'
+  const raw = localStorage.getItem(TOKEN_KEY) || ''
+  const authHeader = raw ? (raw.startsWith('Bearer ') ? raw : `Bearer ${raw}`) : ''
 
   try {
-    const res = await request.post('/agent/chat',
-      { message: userMsg, scene: activeScene.value?.title || '' },
-      { timeout: 120000 }
-    )
+    const resp = await fetch(`${SSE_BASE}/agent/chat-stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify({ message: userMsg, scene: activeScene.value?.title || '' })
+    })
 
-    if (res) {
-      let reply = res.reply || '抱歉，我没有理解你的意思。'
-      reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+    if (!resp.ok) {
+      // Fallback to sync endpoint
+      throw new Error(`SSE failed: ${resp.status}`)
+    }
 
-      // Parse audio URL
-      let audioUrl = null
-      const m1 = reply.match(/音频地址[：:]\s*(https?:\/\/[^\s\n\])]+)/i)
-      const m2 = reply.match(/\[.*?\]\((https?:\/\/[^\s)]*audio[^\s)]*)\)/i)
-      const m3 = reply.match(/(https?:\/\/[^\s\n\])]*(?:audio|tts|\.mp3|\.wav)[^\s\n\])]*)/i)
-      audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let fullReply = ''
+    let doneReply = null
 
-      // Pipeline steps
-      const steps = []
-      if (reply.includes('台本')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
-      if (reply.includes('情感')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
-      if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
-      if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-      // Clean reply
-      let cleanReply = reply
-      if (audioUrl) {
-        cleanReply = cleanReply.replace(/\[.*?\]\(https?:\/\/[^\s)]*(?:audio|tts)[^\s)]*\)/gi, '').trim()
-        cleanReply = cleanReply.replace(/音频地址[：:]\s*https?:\/\/[^\s\n]+/gi, '').trim()
-        cleanReply = cleanReply.replace(/https?:\/\/[^\s\n]*(?:audio|tts|\.mp3|\.wav)[^\s\n]*/gi, '').trim()
-        cleanReply = cleanReply.replace(/（合成完毕.*?）/g, '').trim()
+      const chunk = decoder.decode(value, { stream: true })
+      // Parse SSE: lines like "data:xxx" or "event:done\ndata:xxx"
+      const lines = chunk.split('\n')
+      for (const line of lines) {
+        if (line.startsWith('event:done')) {
+          // Next data line is the final cleaned reply
+          continue
+        }
+        if (line.startsWith('data:')) {
+          const data = line.substring(5)
+          if (doneReply === null && !chunk.includes('event:done')) {
+            // Streaming token
+            fullReply += data
+            streamMsg.text = fullReply
+            loadingText.value = 'AI 正在回复...'
+            await nextTick()
+            scrollToBottom()
+          } else {
+            // Done event — this is the cleaned final reply
+            doneReply = data
+          }
+        }
       }
-      cleanReply = cleanReply.replace(/（查询完毕.*?）/g, '').trim()
-      cleanReply = cleanReply.replace(/（分析完毕.*?）/g, '').trim()
-      cleanReply = cleanReply.replace(/（生成完毕.*?）/g, '').trim()
-      cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
+    }
 
-      // Post-synthesis quick actions
-      const postActions = audioUrl ? [
-        { label: '换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
-        { label: '重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
-      ] : null
+    // Use doneReply if available, otherwise use accumulated fullReply
+    let reply = doneReply || fullReply || '抱歉，我没有理解你的意思。'
+    reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
 
+    // Parse audio URL
+    let audioUrl = null
+    const m1 = reply.match(/音频地址[：:]\s*(https?:\/\/[^\s\n\])]+)/i)
+    const m2 = reply.match(/\[.*?\]\((https?:\/\/[^\s)]*audio[^\s)]*)\)/i)
+    const m3 = reply.match(/(https?:\/\/[^\s\n\])]*(?:audio|tts|\.mp3|\.wav)[^\s\n\])]*)/i)
+    audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
+
+    // Pipeline steps
+    const steps = []
+    if (reply.includes('台本')) steps.push({ label: '台本创作', done: true, detail: '✓ 已生成' })
+    if (reply.includes('情感')) steps.push({ label: '情感解析', done: true, detail: '✓ 已分析' })
+    if (reply.includes('音色')) steps.push({ label: '智能选角', done: true, detail: '✓ 已匹配' })
+    if (audioUrl) steps.push({ label: '语音合成', done: true, detail: '✓ 已完成' })
+
+    // Clean reply
+    let cleanReply = reply
+    if (audioUrl) {
+      cleanReply = cleanReply.replace(/\[.*?\]\(https?:\/\/[^\s)]*(?:audio|tts)[^\s)]*\)/gi, '').trim()
+      cleanReply = cleanReply.replace(/音频地址[：:]\s*https?:\/\/[^\s\n]+/gi, '').trim()
+      cleanReply = cleanReply.replace(/https?:\/\/[^\s\n]*(?:audio|tts|\.mp3|\.wav)[^\s\n]*/gi, '').trim()
+      cleanReply = cleanReply.replace(/（合成完毕.*?）/g, '').trim()
+    }
+    cleanReply = cleanReply.replace(/（查询完毕.*?）/g, '').trim()
+    cleanReply = cleanReply.replace(/（分析完毕.*?）/g, '').trim()
+    cleanReply = cleanReply.replace(/（生成完毕.*?）/g, '').trim()
+    cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
+
+    // Post-synthesis quick actions
+    const postActions = audioUrl ? [
+      { label: '换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
+      { label: '重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
+    ] : null
+
+    // Update the streaming message in-place
+    streamMsg.text = cleanReply
+    streamMsg.audioUrl = audioUrl
+    streamMsg.steps = steps.length > 0 ? steps : null
+    streamMsg.actions = postActions
+    streamMsg.streaming = false
+
+    // Auto-play
+    if (audioUrl) {
+      await nextTick()
+      autoPlayAudio(audioUrl)
+    }
+
+  } catch (err) {
+    console.error('Agent SSE error, trying sync fallback:', err)
+    // Remove the streaming message
+    const idx = messages.value.indexOf(streamMsg)
+    if (idx > -1) messages.value.splice(idx, 1)
+
+    // Fallback to sync endpoint
+    try {
+      const res = await request.post('/agent/chat',
+        { message: userMsg, scene: activeScene.value?.title || '' },
+        { timeout: 120000 }
+      )
+      if (res) {
+        let reply = res.reply || '抱歉，我没有理解你的意思。'
+        reply = reply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+        let audioUrl = null
+        const m1 = reply.match(/音频地址[：:]\s*(https?:\/\/[^\s\n\])]+)/i)
+        const m2 = reply.match(/\[.*?\]\((https?:\/\/[^\s)]*audio[^\s)]*)\)/i)
+        const m3 = reply.match(/(https?:\/\/[^\s\n\])]*(?:audio|tts|\.mp3|\.wav)[^\s\n\])]*)/i)
+        audioUrl = m1?.[1] || m2?.[1] || m3?.[1] || null
+        let cleanReply = reply
+        if (audioUrl) {
+          cleanReply = cleanReply.replace(/\[.*?\]\(https?:\/\/[^\s)]*(?:audio|tts)[^\s)]*\)/gi, '').trim()
+          cleanReply = cleanReply.replace(/音频地址[：:]\s*https?:\/\/[^\s\n]+/gi, '').trim()
+          cleanReply = cleanReply.replace(/https?:\/\/[^\s\n]*(?:audio|tts|\.mp3|\.wav)[^\s\n]*/gi, '').trim()
+        }
+        cleanReply = cleanReply.replace(/\n{3,}/g, '\n\n').trim()
+        messages.value.push({
+          role: 'ai', text: cleanReply, audioUrl,
+          actions: audioUrl ? [
+            { label: '换个音色', id: 'change_voice', style: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-300' },
+            { label: '重写台本', id: 'rewrite', style: 'bg-purple-500/10 border-purple-500/20 text-purple-300' }
+          ] : null
+        })
+        if (audioUrl) { await nextTick(); autoPlayAudio(audioUrl) }
+      } else {
+        messages.value.push({ role: 'ai', text: '请求失败，请稍后重试' })
+      }
+    } catch (e2) {
       messages.value.push({
         role: 'ai',
-        text: cleanReply,
-        audioUrl,
-        steps: steps.length > 0 ? steps : null,
-        actions: postActions
+        text: '网络或服务异常，请稍后重试\n' + (e2.response?.data?.message || e2.message || '')
       })
-
-      // Auto-play: synthesis complete → immediately play
-      if (audioUrl) {
-        await nextTick()
-        autoPlayAudio(audioUrl)
-      }
-    } else {
-      messages.value.push({ role: 'ai', text: '请求失败，请稍后重试' })
     }
-  } catch (err) {
-    console.error('Agent chat error:', err)
-    messages.value.push({
-      role: 'ai',
-      text: '网络或服务异常，请稍后重试\n' + (err.response?.data?.message || err.message || '')
-    })
   } finally {
     loading.value = false
     stopLoadingStages()

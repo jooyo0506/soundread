@@ -51,6 +51,14 @@ export const ttsApi = {
     preview(data) {
         // 试听也调外部 TTS API，单独设置 20s 超时
         return request.post('/tts/preview', data, { timeout: 20000 })
+    },
+
+    /**
+     * TTS v2.0 情感合成（同步返回音频 URL）
+     * @param {Object} data - { text, voiceType, mode, userKey }
+     */
+    synthesizeV2(data) {
+        return request.post('/tts/v2/synthesize', data, { timeout: 60000 })
     }
 }
 

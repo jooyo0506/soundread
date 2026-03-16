@@ -3177,49 +3177,53 @@ const synthesizeChunk = async (text, voiceId) => {
 
 const synthesizeSection = async (section) => {
   if (!section.content) { toastStore.show('段落没有内容'); return }
-  // 防重复合成：已有音频时需确认
   if (section.audioUrl) {
     if (!confirm(`「${section.title || '当前段'}」已有配音，重新合成会消耗额度，确定吗？`)) return
   }
   const voiceId = section.voiceId || selectedVoice.value.voiceId
   synthesizingSection.value = true
   try {
-    // 情感电台：更小的分片（~100字）让首片更快就绪，边听边合成
     const maxLen = ['radio','lecture','ad','picture_book','news'].includes(project.value?.typeCode) ? 100 : 280
     const chunks = splitTextForTTS(section.content, maxLen)
     synthChunkTotal.value = chunks.length
     synthChunkProgress.value = 0
 
-    const audioUrls = []
-    for (let i = 0; i < chunks.length; i++) {
-      synthChunkProgress.value = i + 1
-      const url = await synthesizeChunk(chunks[i], voiceId)
-      if (url) {
-        audioUrls.push(url)
-        if (i === 0) {
+    // 并行合成（最多 3 个并发），保持顺序
+    const audioUrls = new Array(chunks.length).fill(null)
+    let completed = 0
+    const concurrency = 3
+    let nextIdx = 0
+
+    const runNext = async () => {
+      while (nextIdx < chunks.length) {
+        const i = nextIdx++
+        const url = await synthesizeChunk(chunks[i], voiceId)
+        audioUrls[i] = url
+        completed++
+        synthChunkProgress.value = completed
+        // 第一片完成立即播放
+        if (i === 0 && url) {
           playerStore.play({ title: section.title || '合成中...', author: project.value?.title || '创作工作台', url })
-          if (chunks.length > 1) toastStore.show(`✅ 第1片已就绪，边听边合成剩余 ${chunks.length - 1} 片...`)
-        } else {
-          playerStore.enqueue(url)
+          if (chunks.length > 1) toastStore.show(`✅ 第1片已就绪，并行合成剩余 ${chunks.length - 1} 片...`)
         }
       }
     }
+    await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, () => runNext()))
+    const validUrls = audioUrls.filter(Boolean)
 
-    if (audioUrls.length > 0) {
-      // 多片拼接为单文件
+    if (validUrls.length > 0) {
       let audioUrl
-      if (audioUrls.length > 1) {
-        synthChunkProgress.value = chunks.length  // 显示“拼接中”
-        synthChunkTotal.value = chunks.length + 1  // +1 for concat step
-        const merged = await studioApi.concatAudio(audioUrls)
+      if (validUrls.length > 1) {
+        synthChunkProgress.value = chunks.length
+        synthChunkTotal.value = chunks.length + 1
+        const merged = await studioApi.concatAudio(validUrls)
         audioUrl = merged
       } else {
-        audioUrl = audioUrls[0]
+        audioUrl = validUrls[0]
       }
       section.audioUrl = audioUrl; section.voiceId = voiceId; section.status = 'synthesized'
       await studioApi.saveSection({ id: section.id, projectId: section.projectId, sectionIndex: section.sectionIndex, title: section.title, content: section.content, voiceId, audioUrl, status: 'synthesized' })
       await loadSections()
-      // 合成完成后自动展开该段落，方便查阅和播放
       singleExpandedMap[section.id] = true
       toastStore.show('合成完成 🎧 可查阅内容或发布')
     } else {
@@ -3253,15 +3257,21 @@ const synthesizeAll = async () => {
       const v = section.voiceId || voiceId
       const maxLen = ['radio','lecture','ad','picture_book','news'].includes(project.value?.typeCode) ? 100 : 280
       const chunks = splitTextForTTS(section.content, maxLen)
-      const audioUrls = []
-      for (const chunk of chunks) {
-        const url = await synthesizeChunk(chunk, v)
-        if (url) audioUrls.push(url)
+      // 并行合成（最多 3 个并发），保持顺序
+      const audioUrls = new Array(chunks.length).fill(null)
+      let nextIdx = 0
+      const runNext = async () => {
+        while (nextIdx < chunks.length) {
+          const i = nextIdx++
+          audioUrls[i] = await synthesizeChunk(chunks[i], v)
+        }
       }
-      if (audioUrls.length > 0) {
-        const audioUrl = audioUrls.length > 1
-          ? await studioApi.concatAudio(audioUrls)
-          : audioUrls[0]
+      await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, () => runNext()))
+      const validUrls = audioUrls.filter(Boolean)
+      if (validUrls.length > 0) {
+        const audioUrl = validUrls.length > 1
+          ? await studioApi.concatAudio(validUrls)
+          : validUrls[0]
         section.audioUrl = audioUrl; section.voiceId = v; section.status = 'synthesized'
         await studioApi.saveSection({ id: section.id, projectId: section.projectId, sectionIndex: section.sectionIndex, title: section.title, content: section.content, voiceId: v, audioUrl, status: 'synthesized' })
       }
