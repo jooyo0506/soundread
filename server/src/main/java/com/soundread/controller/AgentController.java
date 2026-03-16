@@ -10,6 +10,7 @@ import com.soundread.common.Result;
 import com.soundread.config.ai.LlmProperties;
 import com.soundread.model.entity.User;
 import com.soundread.service.AuthService;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -17,7 +18,6 @@ import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
-import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -81,12 +83,6 @@ public class AgentController {
     private static final long SSE_TIMEOUT_MS = 120_000L;
 
     /**
-     * 共享的 ChatMemoryStore — sync/streaming Agent 共用
-     * 重置对话时直接操作此 store 即可真正清空记忆
-     */
-    private final ChatMemoryStore sharedMemoryStore = new InMemoryChatMemoryStore();
-
-    /**
      * Caffeine 驱动的 ChatMemory 缓存
      * - 最多 500 个用户会话
      * - 30 分钟不活跃自动回收
@@ -97,6 +93,28 @@ public class AgentController {
             .expireAfterAccess(Duration.ofMinutes(30))
             .recordStats()
             .build();
+
+    /**
+     * 共享的 ChatMemoryStore — 使用 Caffeine 做底层存储，防止无限膨胀 OOM
+     */
+    private final ChatMemoryStore sharedMemoryStore = new ChatMemoryStore() {
+        @Override
+        @SuppressWarnings("unchecked")
+        public List<ChatMessage> getMessages(Object memoryId) {
+            List<ChatMessage> messages = (List<ChatMessage>) memoryCache.getIfPresent(memoryId);
+            return messages != null ? messages : new ArrayList<>();
+        }
+
+        @Override
+        public void updateMessages(Object memoryId, List<ChatMessage> messages) {
+            memoryCache.put(memoryId, messages);
+        }
+
+        @Override
+        public void deleteMessages(Object memoryId) {
+            memoryCache.invalidate(memoryId);
+        }
+    };
 
     @PostConstruct
     public void init() {
