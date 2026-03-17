@@ -540,17 +540,14 @@ async function sendMessage(text) {
   }
 
   loading.value = true
-  loadingText.value = 'AI 思考中...'
-  loadingSeconds.value = 0
-  loadingStageIdx.value = 0
+  startLoadingStages(userMsg)
 
   // 实时显示 AI 回复的 streaming message
   const streamMsg = { role: 'ai', text: '', streaming: true }
   messages.value.push(streamMsg)
   await scrollToBottom()
 
-  // 计时器
-  loadingTimer = setInterval(() => { loadingSeconds.value++ }, 1000)
+  // 计时器由 startLoadingStages 接管，不需要额外 interval
 
   const SSE_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
   const TOKEN_KEY = 'sr_token'
@@ -592,6 +589,9 @@ async function sendMessage(text) {
         if (line.startsWith('data:')) {
           const data = line.substring(5)
           if (doneReply === null && !chunk.includes('event:done')) {
+            // 只要开始收到实际文字，立刻停止阶段式 Loading，转为普通打字效果提示
+            if (loadingTimer) stopLoadingStages()
+
             // Streaming token
             fullReply += data
             streamMsg.text = fullReply
