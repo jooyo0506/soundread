@@ -40,6 +40,9 @@ public enum ResultCode {
     /** 无权限访问 */
     FORBIDDEN(403, "无权限访问"),
 
+    /** 接口不存在 */
+    NOT_FOUND(404, "接口不存在"),
+
     /** 配额超限 */
     QUOTA_EXCEEDED(429, "配额已用完"),
 

@@ -85,6 +85,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 404 静态资源或接口未找到异常 (Spring Boot 3.2 默认抛出 NoResourceFoundException)
+     * 避免因前端拼写错误（如 api/upwload）导致控制台疯狂打印大段未知异常的堆栈。
+     */
+    @ExceptionHandler({
+            org.springframework.web.servlet.resource.NoResourceFoundException.class,
+            org.springframework.web.servlet.NoHandlerFoundException.class
+    })
+    public Result<?> handleNotFoundException(Exception e) {
+        log.warn("接口或资源不存在: {}", e.getMessage());
+        return Result.fail(ResultCode.NOT_FOUND);
+    }
+
+    /**
      * 兜底异常处理 — 捕获所有未被上层拦截的未知异常
      *
      * <p>
