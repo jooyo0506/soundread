@@ -15,7 +15,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+// import org.springframework.scheduling.annotation.Scheduled;  // 已暂停
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -299,7 +299,7 @@ public class MusicService {
      * 当任务成功时，下载 Mureka 临时音频 URL 并上传到 R2 持久化存储。
      * </p>
      */
-    @Scheduled(fixedDelay = 5000)
+    // @Scheduled(fixedDelay = 5000) // 已暂停 — 如需恢复请取消注释
     public void pollMurekaTasks() {
         List<MusicTask> pendingTasks = musicTaskMapper.selectList(
                 new LambdaQueryWrapper<MusicTask>()

@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
-import org.springframework.scheduling.annotation.Scheduled;
+// import org.springframework.scheduling.annotation.Scheduled;  // 已暂停
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -56,7 +56,8 @@ public class HeatScoreJob {
      * <li>同步刷新 Redis ZSet 热度榜（发现页查询从 DB→Redis）</li>
      * </ol>
      */
-    @Scheduled(fixedRate = 5 * 60 * 1000, initialDelay = 60 * 1000)
+    // @Scheduled(fixedRate = 5 * 60 * 1000, initialDelay = 60 * 1000) // 已暂停 —
+    // 如需恢复请取消注释
     public void refreshAll() {
         long start = System.currentTimeMillis();
 
