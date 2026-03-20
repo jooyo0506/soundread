@@ -52,12 +52,12 @@ public class KnowledgeService {
     /** 相似度阈值：低于此分数的结果不采用，避免注入无关内容 */
     private static final double MIN_SCORE = 0.45;
 
-    /** 用于向量化的产品文档（类路径下） */
+    /** RAG 知识库：仅用于用户视角的产品知识卡片（不含任何内部技术文档） */
     private static final String[] PRODUCT_DOC_PATHS = {
-            "/docs/ai-workshop.md",
-            "/docs/product-modules.md",
-            "/docs/voice-library.md",
-            "/docs/quota-system.md"
+            "/knowledge/product-intro.md",
+            "/knowledge/ai-workshop-guide.md",
+            "/knowledge/voice-guide.md",
+            "/knowledge/faq.md"
     };
 
     @Value("${ai.vector-db.host:101.32.128.2}")
