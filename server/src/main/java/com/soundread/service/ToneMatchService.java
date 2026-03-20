@@ -46,9 +46,6 @@ public class ToneMatchService {
     /** 内存向量存储 (角色数量有限，无需持久化) */
     private final EmbeddingStore<TextSegment> toneStore = new InMemoryEmbeddingStore<>();
 
-    /** 缓存的角色列表 */
-    private List<AiPromptRole> cachedRoles = new ArrayList<>();
-
     public ToneMatchService(LlmRouter llmRouter, AiPromptRoleMapper roleMapper) {
         this.llmRouter = llmRouter;
         this.roleMapper = roleMapper;
@@ -65,7 +62,6 @@ public class ToneMatchService {
                 log.warn("[ToneMatch] ai_prompt_role 表为空，跳过预热");
                 return;
             }
-            cachedRoles = roles;
             for (AiPromptRole role : roles) {
                 String text = role.getName() + " " + (role.getDescription() != null ? role.getDescription() : "")
                         + " " + (role.getTags() != null ? role.getTags() : "");

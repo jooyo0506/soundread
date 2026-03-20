@@ -5,7 +5,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.soundread.mapper.UserMapper;
-import com.soundread.model.entity.User;
 import com.soundread.service.AiInteractionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

@@ -3,7 +3,6 @@ package com.soundread.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.soundread.common.exception.BusinessException;
-import com.soundread.mapper.UserStorageMapper;
 import com.soundread.mapper.WorkMapper;
 import com.soundread.model.entity.Work;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,6 @@ import java.util.Map;
 public class AdminWorkService {
 
     private final WorkMapper workMapper;
-    private final UserStorageMapper userStorageMapper;
 
     /**
      * 分页查询作品列表（支持多维筛选）

@@ -5,13 +5,11 @@ import com.alibaba.fastjson.JSONObject;
 import com.soundread.sdk.common.BaseClient;
 import com.soundread.sdk.common.exception.SdkException;
 import com.soundread.sdk.tts.config.TtsProperties;
-import com.soundread.sdk.tts.model.TtsRequest;
 import com.soundread.sdk.tts.model.TtsResponse;
 import com.soundread.sdk.tts.model.VoiceInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 火山引擎TTS 1.0 客户端

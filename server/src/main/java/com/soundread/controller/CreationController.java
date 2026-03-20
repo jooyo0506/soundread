@@ -9,7 +9,6 @@ import com.soundread.mapper.UserStorageMapper;
 import com.soundread.model.entity.User;
 import com.soundread.service.AuthService;
 import com.soundread.service.CreationService;
-import com.soundread.service.StorageQuotaService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -35,7 +34,6 @@ import org.springframework.web.bind.annotation.*;
 public class CreationController {
 
     private final CreationService creationService;
-    private final StorageQuotaService storageQuotaService;
     private final UserStorageMapper userStorageMapper;
     private final AuthService authService;
     private final com.soundread.service.TierPolicyService tierPolicyService;

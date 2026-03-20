@@ -1,7 +1,6 @@
 package com.soundread.service;
 
 import com.soundread.adapter.LlmAdapter;
-import com.soundread.adapter.R2StorageAdapter;
 import com.soundread.adapter.WhisperAdapter;
 import com.soundread.mapper.AiInteractionMapper;
 import com.soundread.model.entity.AiInteraction;
@@ -23,7 +22,6 @@ public class AiInteractionService {
 
     private final WhisperAdapter whisperAdapter;
     private final LlmAdapter llmAdapter;
-    private final R2StorageAdapter r2StorageAdapter;
     private final AiInteractionMapper aiInteractionMapper;
     private final QuotaService quotaService;
 
