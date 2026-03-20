@@ -15,7 +15,7 @@
 
 声读是一个面向内容创作者的一站式 **AI 语音内容平台**，由本人独立设计并开发，从零完成前端、后端、AI 集成和运维部署的全链路工作。
 
-**项目规模**：后端 21 个 Service、16 个 Controller、22 张业务表；前端 15 个页面；已集成 6 家 LLM 供应商、2 代 TTS 协议、AI 音乐生成、RAG 知识库。
+**项目规模**：后端 20 个 Service、16 个 Controller、20 张业务表；前端 15 个页面；已集成 6 家 LLM 供应商、2 代 TTS 协议、AI 音乐生成、RAG 知识库。
 
 ---
 
@@ -59,7 +59,7 @@
 │  │  + RAG        │                    │                          │
 │  └───────┬───────┘  ┌─────────────────▼─────────────────────┐   │
 │          │          │  Adapter Layer                          │   │
-│          │          │  LlmRouter / R2Storage / TTS / ASR      │   │
+│          │          │  LlmRouter / R2Storage / TTS            │   │
 │          │          └───────────────────────────────────────-─┘   │
 │          │                                                        │
 │  ┌───────▼───────────────────────────────────────────────────┐   │
@@ -129,7 +129,19 @@ Level 3: 最终兜底模型
 
 原生 `InMemoryChatMemoryStore` 无上限、无过期，生产环境存在 OOM 风险。替换为 Caffeine 支撑的自定义实现：maximumSize(500) + expireAfterAccess(30min) + LRU 淘汰。
 
-### 6. AI 工作坊渐进式加载 UX
+### 6. 三池隔离线程池架构
+
+针对 2C4G 单机 VPS 设计的分层线程池，避免不同 IO 类型的任务互相拖慢：
+
+| 线程池 | 职责 | Core/Max | 设计考量 |
+|--------|------|----------|----------|
+| `taskScheduler` | @Scheduled 定时任务 | 2 | 防止 HeatScoreJob 与 MusicService 互相阻断 |
+| `ioTaskExecutor` | TTS 合成 / 外部 API | 4/16 | IO 密集公式 + CallerRunsPolicy 限流降级 |
+| `r2UploadExecutor` | R2 音频上传 | 2/8 | 与 IO 池隔离，上传慢不影响合成延迟 |
+
+全部启用 `waitForTasksToCompleteOnShutdown` + `allowCoreThreadTimeOut`，发布时正在合成的音频不丢、空闲时自动回收线程降低内存。
+
+### 7. AI 工作坊渐进式加载 UX
 
 SSE 流式场景首 Token 延迟可达 10-20 秒，通过意图识别 + 管线动画提升感知性能：
 - 根据用户消息关键词判断意图（查询/情感/合成/通用）
@@ -198,15 +210,15 @@ cd web && pnpm install && pnpm dev
 soundread/
 ├── server/                   → Spring Boot 后端
 │   └── src/main/java/com/soundread/
-│       ├── adapter/          → 外部服务适配（LLM/R2/TTS/ASR）
+│       ├── adapter/          → 外部服务适配（LLM/R2/TTS）
 │       ├── agent/            → AI Agent（creative/emotion/drama/toolcalling/rag）
 │       ├── common/           → 统一响应 + AOP 限流 + 全局异常处理
-│       ├── config/           → Sa-Token/R2/WebSocket/LLM路由/Redis 配置
+│       ├── config/           → Sa-Token/R2/WebSocket/线程池/LLM路由 配置
 │       ├── controller/       → REST 控制器（16 + 2子模块）
 │       ├── job/              → 定时任务（热度计算/数据清理）
-│       ├── mapper/           → MyBatis-Plus Mapper（22张表）
-│       ├── service/          → 业务层（21 Service）
-│       └── websocket/        → WebSocket Handler
+│       ├── mapper/           → MyBatis-Plus Mapper（20张表）
+│       ├── service/          → 业务层（20 Service）
+│       └── websocket/        → WebSocket Handler（播客流式合成）
 │
 ├── web/                      → Vue 3 用户端（15 页面）
 │   └── src/
