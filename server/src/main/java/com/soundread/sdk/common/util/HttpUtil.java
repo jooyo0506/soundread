@@ -15,7 +15,6 @@ import java.util.concurrent.TimeUnit;
 public class HttpUtil {
 
     private static final MediaType JSON_TYPE = MediaType.get("application/json; charset=utf-8");
-    private static final MediaType FORM_TYPE = MediaType.get("application/x-www-form-urlencoded; charset=utf-8");
 
     private final OkHttpClient client;
 
@@ -93,30 +92,6 @@ public class HttpUtil {
     }
 
     /**
-     * POST请求（Form）
-     */
-    public String postForm(String url, Map<String, String> formData, Map<String, String> headers) throws SdkException {
-        FormBody.Builder formBuilder = new FormBody.Builder();
-        if (formData != null) {
-            formData.forEach(formBuilder::add);
-        }
-
-        Request.Builder builder = new Request.Builder()
-                .url(url)
-                .post(formBuilder.build());
-
-        if (headers != null) {
-            headers.forEach(builder::addHeader);
-        }
-
-        try (Response response = client.newCall(builder.build()).execute()) {
-            return handleResponse(response);
-        } catch (IOException e) {
-            throw new SdkException.ApiException("POST request failed: " + e.getMessage(), -1, e);
-        }
-    }
-
-    /**
      * 处理响应
      */
     private String handleResponse(Response response) throws SdkException {
@@ -130,8 +105,7 @@ public class HttpUtil {
                 }
                 throw new SdkException.ApiException(
                         "HTTP " + response.code() + ": " + errorBody,
-                        response.code()
-                );
+                        response.code());
             }
 
             if (response.body() == null) {
