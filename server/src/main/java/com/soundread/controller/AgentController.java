@@ -10,7 +10,10 @@ import com.soundread.common.Result;
 import com.soundread.config.ai.LlmProperties;
 import com.soundread.model.entity.User;
 import com.soundread.service.AuthService;
+import com.soundread.agent.rag.KnowledgeService;
 import dev.langchain4j.data.message.ChatMessage;
+import com.soundread.model.entity.UserCreation;
+import com.soundread.service.DraftService;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -64,6 +67,8 @@ public class AgentController {
     private final LlmProperties llmProperties;
     private final SoundReadTools soundReadTools;
     private final AuthService authService;
+    private final DraftService draftService;
+    private final KnowledgeService knowledgeService;
 
     /**
      * 支持 Tool Calling 的供应商优先级
@@ -234,6 +239,20 @@ public class AgentController {
 
         log.info("[AgentController] SSE 流式聊天: {}", message);
 
+        // ★ RAG: 检索相关产品知识注入系统提示（异印失败不影响流程）
+        String finalMessage = message;
+        try {
+            List<String> knowledgeSnippets = knowledgeService.search(message);
+            if (!knowledgeSnippets.isEmpty()) {
+                String context = String.join("\n\n---\n\n", knowledgeSnippets);
+                finalMessage = "[参考以下产品文档回答用户问题，在知识范围内首先引用] ▽\n"
+                        + context + "\n\u25b3（以上为产品文档顾问）\n\n用户问题：" + message;
+                log.debug("[AgentController] RAG 注入 {} 条知识", knowledgeSnippets.size());
+            }
+        } catch (Exception ragEx) {
+            log.warn("[AgentController] RAG 检索失败 (降级无增强): {}", ragEx.getMessage());
+        }
+
         try {
             User user = authService.getCurrentUser();
             String memoryId = user.getId().toString();
@@ -251,7 +270,7 @@ public class AgentController {
                     .chatMemoryProvider(requestMemoryProvider)
                     .build();
 
-            TokenStream tokenStream = requestAgent.chat(memoryId, message);
+            TokenStream tokenStream = requestAgent.chat(memoryId, finalMessage);
             StringBuilder fullReply = new StringBuilder();
 
             tokenStream
@@ -269,6 +288,14 @@ public class AgentController {
                             // 发送最终完整回复（前端用于解析 audioUrl 等）
                             emitter.send(SseEmitter.event().name("done").data(cleaned));
                             emitter.complete();
+
+                            // ★ 自动保存草稿（后台完成，不阻塞 SSE 响应）
+                            try {
+                                String audioUrl = extractAudioUrl(cleaned);
+                                draftService.saveAgentDraft(user, cleaned, audioUrl);
+                            } catch (Exception ex) {
+                                log.warn("[AgentController] 草稿保存失败 (非阻塞): {}", ex.getMessage());
+                            }
                         } catch (Exception e) {
                             log.warn("SSE complete error: {}", e.getMessage());
                         }
@@ -291,6 +318,26 @@ public class AgentController {
         }
 
         return emitter;
+    }
+
+    /**
+     * 草稿列表 — 获取当前用户的 Agent 草稿（最近 30 条）
+     */
+    @GetMapping("/drafts")
+    public Result<?> listDrafts() {
+        User user = authService.getCurrentUser();
+        List<UserCreation> drafts = draftService.listDrafts(user.getId());
+        return Result.ok(drafts);
+    }
+
+    /**
+     * 删除草稿
+     */
+    @DeleteMapping("/drafts/{id}")
+    public Result<?> deleteDraft(@PathVariable Long id) {
+        User user = authService.getCurrentUser();
+        draftService.deleteDraft(id, user.getId());
+        return Result.ok("草稿已删除");
     }
 
     /**
@@ -429,16 +476,31 @@ public class AgentController {
     }
 
     /**
-     * 清洗模型回复中的内部标记，防止透出到前端
-     *
-     * <ul>
-     * <li>DeepSeek think 标签: &lt;think&gt;...&lt;/think&gt;</li>
-     * <li>MiniMax Tool Call 宽松格式: function&lt; | tool_sep | &gt;...&lt; |
-     * tool_calls_end | &gt;</li>
-     * <li>MiniMax Tool Call 紧凑格式: &lt;|tool_sep|&gt; &lt;|tool_calls_end|&gt;
-     * 等</li>
-     * </ul>
+     * 从 Agent 回复中提取音频 URL
+     * <p>
+     * 尝试匹配多种格式，无音频时返回 null
+     * </p>
      */
+    private String extractAudioUrl(String text) {
+        if (text == null || text.isBlank())
+            return null;
+        java.util.regex.Matcher m1 = Pattern.compile("音频地址[：:]\\s*(https?://[^\\s\\n\\]]+)", Pattern.CASE_INSENSITIVE)
+                .matcher(text);
+        if (m1.find())
+            return m1.group(1);
+        java.util.regex.Matcher m2 = Pattern
+                .compile("\\[.*?]\\((https?://[^\\s)]*(?:audio|tts)[^\\s)]*)\\)", Pattern.CASE_INSENSITIVE)
+                .matcher(text);
+        if (m2.find())
+            return m2.group(1);
+        java.util.regex.Matcher m3 = Pattern
+                .compile("(https?://[^\\s\\n\\]]*(?:audio|tts|\\.mp3|\\.wav)[^\\s\\n\\]]*)", Pattern.CASE_INSENSITIVE)
+                .matcher(text);
+        if (m3.find())
+            return m3.group(1);
+        return null;
+    }
+
     private static String cleanReply(String reply) {
         if (reply == null || reply.isBlank())
             return reply;

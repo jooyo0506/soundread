@@ -14,8 +14,40 @@
                 class="text-[10px] text-gray-500 hover:text-white transition-colors px-2 py-1 rounded-lg bg-white/5 border border-white/10 active:scale-95">
           <i class="fas fa-redo-alt mr-0.5"></i>重置
         </button>
+        <!-- 草稿历史按钮 -->
+        <button @click="openDrafts"
+                class="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex justify-center items-center text-white cursor-pointer active:scale-95 transition-transform">
+          <i class="fas fa-history text-xs"></i>
+        </button>
       </div>
     </div>
+
+    <!-- 草稿历史抽屉 -->
+    <Transition name="slide-up">
+      <div v-if="draftsOpen" class="fixed inset-0 z-50 flex flex-col justify-end" @click.self="draftsOpen = false">
+        <div class="bg-[#111127] rounded-t-2xl max-h-[70vh] flex flex-col shadow-2xl">
+          <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/10">
+            <h2 class="text-sm font-bold text-white"><i class="fas fa-history mr-1.5 text-indigo-400"></i>AI 草稿历史</h2>
+            <button @click="draftsOpen = false" class="text-gray-500 hover:text-white text-sm"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="overflow-y-auto flex-1 px-4 py-3 space-y-3">
+            <p v-if="!drafts.length" class="text-gray-500 text-xs text-center py-6">暂无草稿，开始和 AI 对话后自动保存</p>
+            <div v-for="d in drafts" :key="d.id"
+                 class="bg-white/5 rounded-xl p-3 border border-white/10">
+              <p class="text-white text-xs font-semibold mb-1 line-clamp-1">{{ d.title }}</p>
+              <p class="text-gray-400 text-[11px] leading-relaxed line-clamp-2 mb-2">{{ d.inputText }}</p>
+              <audio v-if="d.audioUrl" :src="d.audioUrl" controls class="w-full h-7 mb-2" style="height:28px"></audio>
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] text-gray-600">{{ formatDraftTime(d.createdAt) }}</span>
+                <button @click="deleteDraft(d.id)" class="text-[10px] text-red-500/60 hover:text-red-400 transition-colors">
+                  <i class="fas fa-trash-alt mr-0.5"></i>删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
 
     <!-- Scene Selector -->
     <div v-if="!activeScene && !hasUserMessages" class="px-4 pt-1 pb-3">
@@ -366,6 +398,41 @@ function goBack() {
   if (window.history.length > 1) router.back()
   else router.replace('/')
 }
+
+// ═══════════════════════════════════════════════════════
+// 草稿历史抽屉
+// ═══════════════════════════════════════════════════════
+const draftsOpen = ref(false)
+const drafts = ref([])
+
+async function openDrafts() {
+  draftsOpen.value = true
+  try {
+    const res = await useRequest('/api/agent/drafts', { method: 'GET' })
+    drafts.value = res.data || []
+  } catch (e) {
+    drafts.value = []
+  }
+}
+
+async function deleteDraft(id) {
+  try {
+    await useRequest(`/api/agent/drafts/${id}`, { method: 'DELETE' })
+    drafts.value = drafts.value.filter(d => d.id !== id)
+  } catch (e) { /* silent */ }
+}
+
+function formatDraftTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const diff = Math.floor((now - d) / 1000)
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`
+  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
+
 
 // ═══════════════════════════════════════════════════════
 // Progressive loading text
