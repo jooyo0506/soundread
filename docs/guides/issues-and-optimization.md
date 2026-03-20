@@ -1,6 +1,6 @@
 # 声读 SoundRead — 问题记录与优化方案
 
-> 最后更新：2026-03-14  
+> 最后更新：2026-03-20  
 > 状态图例：✅ 已修复 | ⏳ 计划中 | ❌ 待修复
 
 ---
@@ -454,3 +454,55 @@ evtSource.onmessage = () => authStore.fetchUserInfo()
   + 邀请码发放数量自动统计
   + 手机号实名验证（出于合规）
 ```
+
+---
+
+### 1.12 Spring Boot 3.2 将 404 请求当成系统未知异常日志刷屏 ✅
+
+**问题**：前端或扫描器访问不存在的接口（如 `api/upwload` 拼写错误），后台控制台打印上百行 `ERROR 系统未知异常: NoResourceFoundException` 堆栈，干扰排查真正的系统错误。
+
+**根因**：Spring Boot 3.2 将静态资源/接口未找到改为抛出 `NoResourceFoundException`，原 `@ExceptionHandler(Exception.class)` 兜底处理器对所有异常一视同仁地 `log.error` + 全量堆栈，没有对 404 做精准区分。
+
+**修复（精准 404 拦截 ✅）**：
+```java
+// GlobalExceptionHandler.java
+@ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+public Result<?> handleNotFoundException(Exception e) {
+    log.warn("接口或资源不存在: {}", e.getMessage()); // WARN 级别，仅一行
+    return Result.fail(ResultCode.NOT_FOUND);
+}
+```
+同时在 `ResultCode` 中补充 `NOT_FOUND(404, "接口不存在")` 枚举值。
+
+**效果**：404 请求仅打印一行 WARN，不再污染 ERROR 日志，真正的系统错误更容易被察觉。
+
+---
+
+### 1.13 AI 工作坊对话成果刷新后丢失 ✅
+
+**问题**：用户与 AI 完成有价值对话（台本创作/音频合成）后，刷新页面聊天记录消失，成果无法找回。
+
+**根因**：前端聊天消息仅存于 Vue `ref` 内存，页面刷新即清除，未持久化到后端。
+
+**修复（草稿自动保存 ✅）**：
+- 新增 `DraftService.java`，复用 `user_creation` 表（`type='agent_draft'`），无 DDL 变更
+- `AgentController` 的 SSE `onComplete` 回调结束后**非阻塞**调用 `saveAgentDraft()`
+- 草稿保留上限 30 条，超限 LRU 淘汰最旧的；`extractAudioUrl()` 正则提取音频链接
+- 前端 `AiWorkshop.vue` 新增历史草稿抽屉，支持文字回看、音频重放、单条删除
+- 新增接口：`GET /api/agent/drafts`、`DELETE /api/agent/drafts/{id}`
+
+---
+
+### 1.14 Agent 对产品问题回答质量低（幻觉高发）✅
+
+**问题**：用户询问"声读能做什么"、"怎么换音色"等产品问题时，Agent 因缺乏真实产品知识，经常产生与实际功能不符的幻觉回答。
+
+**根因**：Agent System Prompt 只包含行为指令，没有任何产品说明书内容；声读是定制产品，不在大模型预训练集中。
+
+**修复（产品知识 RAG ✅）**：
+- 新增 `KnowledgeService.java`，使用本地 ONNX Embedding（`AllMiniLmL6V2`，384 维，无 API 费用）将 4 个用户视角文档切块并存入 pgvector：`ai-workshop.md`、`product-modules.md`、`voice-library.md`、`quota-system.md`
+- `AgentController` 在每次 SSE Chat 前先调用 `knowledgeService.search()`（阈值 0.45），无相关内容时零开销跳过
+- 内部技术文档（`deployment.md`、`security-audit.md` 等）**全部排除**，防止运维信息泄露给用户
+- RAG 失败时降级无增强模式，不影响主流程
+
+**效果**：用户询问产品功能时，Agent 能基于真实文档回答；询问部署等内部信息时，Agent 声明不在产品范围内。
