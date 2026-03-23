@@ -116,13 +116,20 @@ Level 3: 最终兜底模型
 - 向量存入 pgvector，`@PostConstruct` 自动检测并一次性导入
 - RAG 失败时降级无增强模式，不阻断主流程
 
-### 4. 支付安全：RSA2 验签 + CAS 幂等防重
+### 4. 支付安全：六层防御 + 三态状态机
 
-```java
-// 支付宝异步回调处理：三重保障
-1. RSA2 验签：防伪造回调
-2. CAS 原子操作：UPDATE order SET status=2 WHERE id=? AND status=1
-3. @Transactional：保证积分发放与状态变更原子性
+```
+支付宝异步回调六道防线：
+1. RSA2 验签 — 防伪造回调
+2. app_id 校验 — 防跨应用伪造
+3. 金额比对 — 防支付金额篡改
+4. 三态 CAS — pending→paid→activated，MySQL 行锁防并发双写
+5. 重试恢复 — CAS 后激活失败，支付宝重试时 paid 态可再次激活
+6. SQL 原子激活 — GREATEST() 防 VIP 时间并发覆盖
+
+辅助防护：
+- Redis 防重下单（同用户同套餐 5s 窗口）
+- 超时关单定时任务（30min 未支付自动 expired）
 ```
 
 ### 5. ChatMemory Caffeine 防 OOM
