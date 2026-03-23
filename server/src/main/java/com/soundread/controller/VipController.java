@@ -66,11 +66,17 @@ public class VipController {
      */
     @PostMapping("/payment/alipay-notify")
     public String alipayNotify(HttpServletRequest httpRequest) {
-        // 把所有参数转为 String Map
         Map<String, String> params = new HashMap<>();
         httpRequest.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
         log.info("[Alipay Notify] 收到回调, out_trade_no={}", params.get("out_trade_no"));
-        return vipService.handleAlipayNotify(params);
+        try {
+            return vipService.handleAlipayNotify(params);
+        } catch (Exception e) {
+            // 所有异常统一返回 fail，支付宝 25 小时内最多重试 25 次
+            log.error("[Alipay Notify] 处理失败（支付宝将重试）: out_trade_no={}",
+                    params.get("out_trade_no"), e);
+            return "fail";
+        }
     }
 
     /** 前端主动轮询订单状态（支付宝跳回 return_url 后调用） */

@@ -121,96 +121,86 @@ public class VipService {
     // ==================== 支付宝异步回调 ====================
 
     /**
-     * 处理支付宝异步通知
+     * 处理支付宝异步通知（编排方法，不加事务）
      *
      * <p>
-     * 三道可靠性防线：
+     * 职责：验签 → 查单 → CAS 防重 → 调事务方法激活 VIP。
+     * 异常不在此 catch，由 Controller 统一兜底返回 "fail"，让支付宝重试。
      * </p>
+     *
+     * <h3>三道可靠性防线</h3>
      * <ol>
      * <li>RSA2 验签 — 防伪造回调</li>
-     * <li>DB CAS 原子更新 — UPDATE WHERE status='pending'，防并发双写（高并发下多个 notify
-     * 同时到达，MySQL 行锁保证只有1个成功）</li>
-     * <li>@Transactional — activateUserVip 失败自动回滚 status 回 pending，支付宝重试时可再次激活</li>
+     * <li>DB CAS 原子更新 — UPDATE WHERE status='pending'，MySQL 行锁保证幂等</li>
+     * <li>activateUserVip 独立事务 — 失败时异常上抛，Controller 返回 fail，
+     * 支付宝重试时 CAS 已 updated（status=paid），需要恢复机制</li>
      * </ol>
      */
-    @Transactional(rollbackFor = Exception.class)
-    public String handleAlipayNotify(Map<String, String> params) {
-        try {
-            // ===== 1. 验签（防伪造） =====
-            boolean signOk = AlipaySignature.rsaCheckV1(
-                    params, alipayProps.getPublicKey(), "UTF-8", "RSA2");
-            if (!signOk) {
-                log.warn("[VipNotify] 签名验证失败: params={}", params);
-                return "fail";
-            }
-
-            // ===== 2. 只处理 TRADE_SUCCESS / TRADE_FINISHED =====
-            String tradeStatus = params.get("trade_status");
-            if (!"TRADE_SUCCESS".equals(tradeStatus) && !"TRADE_FINISHED".equals(tradeStatus)) {
-                return "success"; // 其他状态告知支付宝不再重试
-            }
-
-            String orderNo = params.get("out_trade_no");
-            String alipayTradeNo = params.get("trade_no");
-
-            // ===== 3. 查订单（确认存在）=====
-            VipOrder order = vipOrderMapper.selectOne(
-                    new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
-            if (order == null) {
-                log.error("[VipNotify] 订单不存在: orderNo={}", orderNo);
-                return "fail";
-            }
-
-            // ===== 4. ★ CAS 原子更新（核心并发防护）=====
-            // UPDATE vip_order SET status='paid' WHERE order_no=? AND status='pending'
-            // MySQL 行锁保证并发 notify 中只有1个线程 updated=1，其余为0
-            int updated = vipOrderMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<VipOrder>()
-                            .eq(VipOrder::getOrderNo, orderNo)
-                            .eq(VipOrder::getStatus, "pending") // CAS 条件
-                            .set(VipOrder::getStatus, "paid")
-                            .set(VipOrder::getAlipayTradeNo, alipayTradeNo)
-                            .set(VipOrder::getPayTime, LocalDateTime.now())
-                            .set(VipOrder::getNotifyRaw, params.toString()));
-
-            if (updated == 0) {
-                // 已被其他线程处理（并发重试）→ 幂等返回成功
-                log.info("[VipNotify] 已处理，幂等跳过: orderNo={}", orderNo);
-                return "success";
-            }
-
-            // ===== 5. 激活 VIP（在事务内，失败会回滚 status 回 pending，支付宝可继续重试）=====
-            VipOrder paid = vipOrderMapper.selectOne(
-                    new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
-            activateUserVip(paid);
-
-            log.info("[VipNotify] 处理成功: orderNo={}, alipayTradeNo={}", orderNo, alipayTradeNo);
-            return "success";
-
-        } catch (Exception e) {
-            log.error("[VipNotify] 处理异常（事务回滚，支付宝将重试）", e);
-            return "fail"; // 支付宝 25 小时内最多重试 25 次
+    public String handleAlipayNotify(Map<String, String> params) throws AlipayApiException {
+        // ===== 1. 验签（防伪造） =====
+        boolean signOk = AlipaySignature.rsaCheckV1(
+                params, alipayProps.getPublicKey(), "UTF-8", "RSA2");
+        if (!signOk) {
+            log.warn("[VipNotify] 签名验证失败: params={}", params);
+            return "fail";
         }
+
+        // ===== 2. 只处理 TRADE_SUCCESS / TRADE_FINISHED =====
+        String tradeStatus = params.get("trade_status");
+        if (!"TRADE_SUCCESS".equals(tradeStatus) && !"TRADE_FINISHED".equals(tradeStatus)) {
+            return "success"; // 其他状态告知支付宝不再重试
+        }
+
+        String orderNo = params.get("out_trade_no");
+        String alipayTradeNo = params.get("trade_no");
+
+        // ===== 3. 查订单（确认存在）=====
+        VipOrder order = vipOrderMapper.selectOne(
+                new LambdaQueryWrapper<VipOrder>().eq(VipOrder::getOrderNo, orderNo));
+        if (order == null) {
+            log.error("[VipNotify] 订单不存在: orderNo={}", orderNo);
+            return "fail";
+        }
+
+        // ===== 4. ★ CAS 原子更新（核心并发防护）=====
+        // UPDATE vip_order SET status='paid' WHERE order_no=? AND status='pending'
+        // MySQL 行锁保证并发 notify 中只有1个线程 updated=1，其余为0
+        int updated = vipOrderMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<VipOrder>()
+                        .eq(VipOrder::getOrderNo, orderNo)
+                        .eq(VipOrder::getStatus, "pending") // CAS 条件
+                        .set(VipOrder::getStatus, "paid")
+                        .set(VipOrder::getAlipayTradeNo, alipayTradeNo)
+                        .set(VipOrder::getPayTime, LocalDateTime.now())
+                        .set(VipOrder::getNotifyRaw, params.toString()));
+
+        if (updated == 0) {
+            // 已被其他线程处理 或 已激活 → 幂等返回成功
+            log.info("[VipNotify] 已处理，幂等跳过: orderNo={}", orderNo);
+            return "success";
+        }
+
+        // ===== 5. ★ 事务方法激活 VIP（失败时异常上抛，Controller 返回 fail）=====
+        activateUserVip(order);
+
+        log.info("[VipNotify] 处理成功: orderNo={}, alipayTradeNo={}", orderNo, alipayTradeNo);
+        return "success";
     }
 
     /**
-     * 激活用户 VIP（更新 User 表）
+     * 原子激活用户 VIP（独立事务）
+     *
+     * <p>
+     * 使用 SQL 原子操作避免并发读写竞争：
+     * <ul>
+     * <li>到期时间：从 MAX(当前到期时间, NOW()) 开始叠加天数</li>
+     * <li>VIP 等级：取已有等级和新等级的较大值（不降级）</li>
+     * </ul>
+     * 失败时异常上抛，由上层决定重试策略。
+     * </p>
      */
-    private void activateUserVip(VipOrder order) {
-        User user = userMapper.selectById(order.getUserId());
-        if (user == null)
-            return;
-
-        LocalDateTime expireAt = "vip_lifetime".equals(order.getPlanId())
-                ? LocalDateTime.of(2099, 12, 31, 23, 59)
-                : LocalDateTime.now().plusDays(order.getDurationDays());
-
-        // 已有 VIP 则叠加时间
-        if (user.isVip() && user.getVipExpireTime() != null
-                && user.getVipExpireTime().isAfter(LocalDateTime.now())) {
-            expireAt = user.getVipExpireTime().plusDays(order.getDurationDays());
-        }
-
+    @Transactional(rollbackFor = Exception.class)
+    public void activateUserVip(VipOrder order) {
         int vipLevel = switch (order.getPlanId()) {
             case "vip_month" -> 1;
             case "vip_year" -> 2;
@@ -218,27 +208,25 @@ public class VipService {
             default -> 1;
         };
 
-        // 取高等级（购买年度时不降级已有终身）
-        if (user.getVipLevel() != null && user.getVipLevel() > vipLevel) {
-            vipLevel = user.getVipLevel();
-        }
-
-        // 更新等级策略 tierCode
         String tierCode = switch (vipLevel) {
             case 2 -> "vip_year";
             case 3 -> "vip_lifetime";
             default -> "vip_month";
         };
 
-        user.setVipLevel(vipLevel);
-        user.setVipExpireTime(expireAt);
-        user.setTierCode(tierCode);
-        userMapper.updateById(user);
+        // 终身 VIP 设置超大天数
+        int durationDays = "vip_lifetime".equals(order.getPlanId()) ? 99999 : order.getDurationDays();
 
-        // ★ P2-a 缓存清除：VIP 激活后清除 Redis 用户缓存，保证下次请求读到最新 VIP 状态
-        authService.evictUserCache(user.getId());
+        // ★ 单条 SQL 原子完成，无读写竞争
+        int rows = userMapper.atomicActivateVip(order.getUserId(), durationDays, vipLevel, tierCode);
+        if (rows == 0) {
+            throw new BusinessException("VIP 激活失败：用户不存在 userId=" + order.getUserId());
+        }
 
-        log.info("VIP 激活: userId={}, tierCode={}, expireAt={}", user.getId(), tierCode, expireAt);
+        // 清除 Redis 用户缓存，保证下次请求读到最新 VIP 状态
+        authService.evictUserCache(order.getUserId());
+
+        log.info("VIP 激活: userId={}, tierCode={}, durationDays={}", order.getUserId(), tierCode, durationDays);
     }
 
     // ==================== 订单状态查询 ====================

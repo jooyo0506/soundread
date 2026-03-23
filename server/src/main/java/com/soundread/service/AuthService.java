@@ -91,11 +91,15 @@ public class AuthService {
             throw new BusinessException("该手机号已注册，请直接登录");
         }
 
-        // 3. 邀请码使用次数 +1（CAS 局部增）
-        inviteCodeMapper.update(null,
+        // 3. 邀请码使用次数 +1（CAS 防并发超额：used_count < max_uses 才允许）
+        int updated = inviteCodeMapper.update(null,
                 new LambdaUpdateWrapper<InviteCode>()
                         .eq(InviteCode::getId, inviteCode.getId())
+                        .lt(InviteCode::getUsedCount, inviteCode.getMaxUses()) // CAS 条件
                         .setSql("used_count = used_count + 1"));
+        if (updated == 0) {
+            throw new BusinessException("邀请码已达到使用上限");
+        }
 
         // 4. 创建用户
         User user = new User();
